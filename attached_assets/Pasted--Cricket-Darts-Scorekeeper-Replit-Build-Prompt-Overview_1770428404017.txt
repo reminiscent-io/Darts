@@ -1,0 +1,221 @@
+# Cricket Darts Scorekeeper — Replit Build Prompt
+
+## Overview
+
+Build a mobile-first Cricket Darts scorekeeper web app for casual/bar play. The app tracks team-level scoring with individual player attribution. It should feel like a premium native app, not a web page — think dark theme, smooth transitions, haptic-feeling interactions, and zero friction during gameplay.
+
+## Tech Stack
+
+- React + TypeScript
+- Tailwind CSS
+- Framer Motion for animations
+- Local state management (React Context or Zustand — no backend needed)
+- PWA-ready (add to home screen support)
+- No external backend or database — all state lives in-browser with localStorage persistence so a game survives an accidental tab close
+
+## Design Direction
+
+- **Dark theme** — this lives in a bar/rec room. No bright white screens
+- **Mobile-first, touch-optimized** — every tap target minimum 48px, ideally larger for the main score input buttons
+- **Aesthetic**: Clean, modern, slightly industrial. Think ESPN scoreboard meets a premium mobile game. Monospace or condensed fonts for scores, a clean sans-serif for labels
+- **Color**: Dark charcoal/near-black background. Use a bold accent color (electric blue or amber) for the active player indicator and interactive elements. Marks use chalk-white
+- **Typography**: Use a distinctive display font for team names/scores. Monospace or tabular figures for numbers so columns stay aligned
+- **Animations**: Smooth but fast — marks appearing, score counting up, turn transitions. Nothing that slows down gameplay. 200-300ms max for any transition
+- **No scrolling during gameplay** — the entire game board must fit on a single mobile viewport (375px width minimum, target 390-430px range for modern phones)
+
+## App Flow
+
+### Screen 1: Home / New Game
+- App logo/title
+- "New Game" button (primary CTA)
+- "Resume Game" button if a game exists in localStorage
+- Clean, minimal — just get people into the game
+
+### Screen 2: Game Setup
+- **Team 1 section**: Team name input (default "Team 1"), player name inputs with "Add Player" button. Minimum 1 player, start with 1 input field shown
+- **Team 2 section**: Same structure, default "Team 2"
+- Player name defaults: "Player 1", "Player 2", etc. if left blank
+- Equal team sizes NOT required (2v1 is valid)
+- **"Start Game" button** at the bottom — disabled until at least 1 player per team
+- Optional: "Who goes first?" coin flip animation or simple toggle
+
+### Screen 3: Game Board (the main event)
+
+This is where 95% of the time is spent. Every pixel matters.
+
+**Layout (top to bottom, single viewport, no scroll):**
+
+```
+┌─────────────────────────────────┐
+│  Team 1 Name    │  Team 2 Name  │  ← Team headers with total points
+│  [Points: 45]   │  [Points: 20] │
+├─────────────────────────────────┤
+│  Now Throwing: Kevin (Team 1)   │  ← Active player indicator
+│  Dart: ●●○  (2 of 3)           │  ← Dart counter (filled/empty dots)
+├─────────────────────────────────┤
+│        ⊗ │ 20 │ XX             │  ← Cricket numbers column center
+│       XX │ 19 │ /              │     Team 1 marks on left
+│        / │ 18 │                │     Team 2 marks on right
+│          │ 17 │ /              │
+│          │ 16 │                │
+│       ⊗  │ 15 │                │
+│        / │  B │ XX             │  ← B = Bullseye
+├─────────────────────────────────┤
+│  Dart Tray: [T20] [S19] [ ]    │  ← Shows darts entered this turn
+├─────────────────────────────────┤
+│  [Miss] [SB] [DB]              │  ← Miss + Bull buttons
+│                                 │
+│  [20] [19] [18] [17] [16] [15] │  ← Number input buttons
+│                                 │
+│  (Single)  (Double)  (Triple)  │  ← Multiplier toggle (Single default)
+├─────────────────────────────────┤
+│  [Undo]              [Next →]  │  ← Undo last dart / Next player
+└─────────────────────────────────┘
+```
+
+**Scoreboard Section (top half):**
+- Team names and point totals always visible
+- Cricket numbers listed vertically in center column: 20, 19, 18, 17, 16, 15, Bull
+- Team 1 marks on left side, Team 2 marks on right
+- Mark notation: / (1 mark), X (2 marks), ⊗ or filled circle (3 = closed)
+- When a number is closed by BOTH teams, visually dim/strike it — it's dead
+- When a number is live for scoring (current team closed it, opponent hasn't), highlight it subtly
+
+**Active Player Bar:**
+- Show current player name and which team they're on
+- Dart counter: 3 dots/circles, fill them as darts are entered
+- This should feel prominent — it's the "whose turn" anchor
+
+**Dart Tray:**
+- Shows the 1-3 darts entered this turn as pills/chips
+- Each chip shows the dart (e.g., "T20", "S19", "DB", "Miss")
+- Tapping a chip in the tray allows editing/deleting that specific dart
+- This is the primary "accidental click" recovery mechanism
+
+**Input Area (bottom half):**
+- **Multiplier toggle**: Three buttons — Single (default), Double, Triple. Single is pre-selected on each new dart. Selected state should be visually obvious (filled/highlighted)
+- **Number buttons**: 20, 19, 18, 17, 16, 15 — large, easy to tap. Arrange in a row or 2x3 grid depending on what fits
+- **Bull buttons**: Two distinct buttons — "SB" (single bull, 25) and "DB" (double bull, 50). These bypass the multiplier toggle
+- **Miss button**: Records a dart with 0 marks, 0 points. Visually distinct (muted/outline style)
+- **Tapping a number button with a multiplier selected = 1 dart entered.** Multiplier resets to Single after each dart entry
+
+**Action Bar (bottom):**
+- **Undo**: Removes the last dart entered. If no darts this turn, undoes across turn boundary (goes back to previous player's last dart). Show confirmation if undoing across turns
+- **Next Player →**: Advances to next player. Only enabled after at least 1 dart thrown (or allow skipping with confirmation). Auto-fills remaining darts as misses OR requires all 3 to be entered — decide on: require all 3
+
+## Input Logic & Edge Cases
+
+### Dart Entry Flow
+1. Player selects multiplier (default: Single)
+2. Player taps a number → dart is recorded
+3. Multiplier resets to Single
+4. Dart tray updates, dart counter fills
+5. After 3 darts: prompt to confirm / auto-advance to next player (use explicit "Next" button, don't auto-advance)
+
+### Scoring Rules
+- Dart marks go to the TEAM, not the individual (but log which player threw it)
+- If team has < 3 marks on a number: dart adds marks toward closing (1 for single, 2 for double, 3 for triple)
+- If team has 3+ marks (closed) AND opponent has < 3 marks: dart scores points (number value × overflow hits)
+- If BOTH teams have 3+ marks: dart does nothing (number is dead)
+- Overflow in a single dart: If team has 1 mark on 20 and player hits triple 20 → 2 marks to close + 1 hit of overflow → +20 points (if opponent hasn't closed 20)
+- Single bull = 1 mark, Double bull = 2 marks. Scoring value: bull = 25 per hit
+- Hitting a non-cricket number: not possible via UI (buttons only show cricket numbers)
+
+### Win Condition
+- A team wins when they have ALL 7 numbers closed AND their point total is ≥ the other team's
+- Check win condition after EVERY dart (not just end of turn) — game can end on dart 1 or 2
+- If a dart triggers a win: show a win confirmation modal BEFORE finalizing. Allow undo if it was a mis-entry
+- Edge case: Team closes all 7 but has fewer points → game continues. They can no longer score (everything is closed for them). Show a subtle indicator that they need the other team to catch up on closures so points can be scored. Actually — they're stuck. Highlight this state clearly
+
+### Accidental Input Prevention
+- **Debounce**: 250ms cooldown between dart registrations
+- **Dart tray editing**: Tapping any dart in the tray opens an edit/delete option for that specific dart
+- **Undo button**: Always available, works per-dart
+- **Undo across turns**: If current player has 0 darts entered, undo goes to previous player's last dart. Show a confirmation: "Undo [Player Name]'s last dart?"
+- **Undo depth**: Support undoing the entire current round (all players back to start of round). Don't need deeper than that
+- **Game-ending dart confirmation**: Modal with "Confirm Win" / "Undo" before finalizing
+- **Next Player button**: Require it to be pressed explicitly — never auto-advance turns
+- **Disable input when game is over**: Lock all scoring buttons after a win is confirmed
+
+### Turn Order
+- Alternates between teams: Team 1 Player 1 → Team 2 Player 1 → Team 1 Player 2 → Team 2 Player 2 → (cycle)
+- If teams are unequal (2v1): the solo player just goes every other turn
+- Display upcoming order somewhere subtle (or just show who's next)
+
+## Data Model
+
+```typescript
+interface Game {
+  id: string;
+  teams: [Team, Team];
+  currentTurnIndex: number; // index into turnOrder array
+  turnOrder: PlayerRef[]; // pre-computed alternating order
+  dartHistory: DartEntry[]; // full history for undo
+  currentTurnDarts: DartEntry[]; // 0-3 darts for current turn
+  status: 'in_progress' | 'completed';
+  winnerId?: string; // team id
+  createdAt: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  players: Player[];
+  marks: Record<CricketNumber, number>; // 20-15 + 'B', value 0-3+
+  points: number;
+}
+
+interface Player {
+  id: string;
+  name: string;
+  teamId: string;
+}
+
+interface DartEntry {
+  id: string;
+  playerId: string;
+  teamId: string;
+  target: CricketNumber | 'miss';
+  multiplier: 1 | 2 | 3; // single, double, triple
+  marksApplied: number; // how many marks actually added (could be less than multiplier if already closed)
+  pointsScored: number; // points earned from this dart
+  timestamp: string;
+}
+
+type CricketNumber = 20 | 19 | 18 | 17 | 16 | 15 | 'B';
+```
+
+## Post-Game Screen
+
+- Clear winner announcement with team name
+- Final scoreboard state
+- Per-player stats:
+  - Total marks thrown
+  - Marks per round (MPR) — total marks ÷ number of rounds played
+  - Points contributed
+  - Highlight MVP (highest MPR)
+- "New Game" and "Rematch" (same players, fresh board) buttons
+
+## State Persistence
+
+- Save game state to localStorage on every dart entry
+- On app load, check for existing game and offer "Resume Game"
+- Clear saved state when game completes and user navigates away
+
+## Stretch Goals (don't build these initially, but architect for them)
+
+- 3+ team support
+- Sound effects on marks and closings
+- Haptic feedback (navigator.vibrate)
+- Game history (past completed games)
+- Stat tracking across multiple games
+- Share game results
+
+## Critical Quality Bar
+
+- **Zero layout shift during gameplay** — nothing should move unexpectedly
+- **All interactive elements minimum 48px touch target**
+- **The game board MUST fit on screen without scrolling** on iPhone SE (375px) through iPhone 15 Pro Max (430px)
+- **Dart entry should take < 1 second** for the common case (single hit on a cricket number)
+- **Undo should be instant and obvious**
+- **State should never be lost** — localStorage persistence on every action
