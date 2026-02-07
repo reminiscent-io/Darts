@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
 import {
-  createCricketGame, loadGame, saveGame, clearSavedGame,
+  createCricketGame, loadGame, loadGameFromDb, saveGame, clearSavedGame,
   saveGameToHistory, savePlayerNames, migrateStorage
 } from "@/lib/game-logic";
 import { createX01Game } from "@/lib/x01-game-logic";
@@ -14,8 +14,10 @@ import CricketPostGameScreen from "@/pages/cricket-post-game-screen";
 import X01GameScreen from "@/pages/x01-game-screen";
 import X01PostGameScreen from "@/pages/x01-post-game-screen";
 import HistoryScreen from "@/pages/history-screen";
+import AccessScreen, { isAccessGranted } from "@/pages/access-screen";
 
 function App() {
+  const [authenticated, setAuthenticated] = useState(() => isAccessGranted());
   const [screen, setScreen] = useState<AppScreen>('home');
   const [game, setGame] = useState<Game | null>(null);
 
@@ -28,9 +30,12 @@ function App() {
     setScreen('setup');
   }, []);
 
-  const handleResumeGame = useCallback(() => {
-    const saved = loadGame();
-    if (saved?.status === 'in_progress') {
+  const handleResumeGame = useCallback(async () => {
+    let saved = loadGame();
+    if (!saved || saved.status !== 'in_progress') {
+      saved = await loadGameFromDb();
+    }
+    if (saved && saved.status === 'in_progress') {
       setGame(saved);
       setScreen('game');
     }
@@ -140,6 +145,15 @@ function App() {
   const handleBackToHome = useCallback(() => {
     setScreen('home');
   }, []);
+
+  if (!authenticated) {
+    return (
+      <div className="h-full w-full max-w-lg mx-auto relative bg-background">
+        <AccessScreen onAccessGranted={() => setAuthenticated(true)} />
+        <Toaster />
+      </div>
+    );
+  }
 
   const renderGameScreen = () => {
     if (!game) return null;

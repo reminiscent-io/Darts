@@ -387,6 +387,17 @@ export function migrateStorage(): void {
 
 export function saveGame(game: Game): void {
   localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(game));
+  saveGameToDb(game).catch(() => {});
+}
+
+async function saveGameToDb(game: Game): Promise<void> {
+  try {
+    await fetch('/api/games', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: game.id, status: game.status, gameState: game }),
+    });
+  } catch {}
 }
 
 export function loadGame(): Game | null {
@@ -404,8 +415,25 @@ export function loadGame(): Game | null {
   }
 }
 
+export async function loadGameFromDb(): Promise<Game | null> {
+  try {
+    const res = await fetch('/api/games/active');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(data));
+    return data as Game;
+  } catch {
+    return null;
+  }
+}
+
 export function clearSavedGame(): void {
+  const game = loadGame();
   localStorage.removeItem(STORAGE_KEYS.game);
+  if (game) {
+    fetch(`/api/games/${game.id}`, { method: 'DELETE' }).catch(() => {});
+  }
 }
 
 // --- Game History ---
@@ -435,6 +463,11 @@ export function saveGameToHistory(game: Game): void {
   history.unshift(summary);
   if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
   localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
+  fetch('/api/history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(summary),
+  }).catch(() => {});
 }
 
 export function loadGameHistory(): GameSummary[] {
@@ -447,8 +480,25 @@ export function loadGameHistory(): GameSummary[] {
   }
 }
 
+export async function loadGameHistoryFromDb(): Promise<GameSummary[]> {
+  try {
+    const res = await fetch('/api/history');
+    if (!res.ok) return [];
+    const data = await res.json();
+    const summaries = (data as GameSummary[]).map((s: GameSummary) => ({
+      ...s,
+      completedAt: typeof s.completedAt === 'string' ? s.completedAt : new Date(s.completedAt).toISOString(),
+    }));
+    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(summaries));
+    return summaries;
+  } catch {
+    return loadGameHistory();
+  }
+}
+
 export function clearGameHistory(): void {
   localStorage.removeItem(STORAGE_KEYS.history);
+  fetch('/api/history', { method: 'DELETE' }).catch(() => {});
 }
 
 // --- Player Name Memory ---
@@ -463,6 +513,11 @@ export function savePlayerNames(names: string[]): void {
     }
   }
   localStorage.setItem(STORAGE_KEYS.players, JSON.stringify(Array.from(merged).sort((a, b) => a.localeCompare(b))));
+  fetch('/api/players', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ names }),
+  }).catch(() => {});
 }
 
 export function loadPlayerNames(): string[] {
@@ -472,5 +527,17 @@ export function loadPlayerNames(): string[] {
     return JSON.parse(data) as string[];
   } catch {
     return [];
+  }
+}
+
+export async function loadPlayerNamesFromDb(): Promise<string[]> {
+  try {
+    const res = await fetch('/api/players');
+    if (!res.ok) return [];
+    const names = await res.json() as string[];
+    localStorage.setItem(STORAGE_KEYS.players, JSON.stringify(names));
+    return names;
+  } catch {
+    return loadPlayerNames();
   }
 }

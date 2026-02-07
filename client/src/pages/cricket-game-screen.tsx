@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Undo2, ChevronRight, X } from "lucide-react";
+import { Undo2, ChevronRight, X, Home } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
@@ -12,7 +12,7 @@ import {
 import {
   getCurrentPlayer, recordCricketDart, advanceTurn, undoLastCricketDart,
   removeCricketDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
-  saveGame, confirmWin, getCricketPlayerStats
+  saveGame, clearSavedGame, confirmWin, getCricketPlayerStats
 } from "@/lib/game-logic";
 
 interface CricketGameScreenProps {
@@ -26,6 +26,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
   const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const lastDartTime = useRef(0);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
@@ -129,6 +130,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
     setPendingWin(null);
   };
 
+  const handleLeave = () => {
+    clearSavedGame();
+    window.location.reload();
+  };
+
   const renderMarks = (count: number) => {
     if (count === 0) return <span className="text-muted-foreground/20 text-lg font-mono">&mdash;</span>;
     if (count === 1) return <span className="text-foreground text-lg font-mono">/</span>;
@@ -188,8 +194,20 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
+      <div className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-8 h-8 text-muted-foreground"
+          onClick={() => setShowLeaveConfirm(true)}
+        >
+          <Home className="w-4 h-4" />
+        </Button>
+        <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">Cricket</span>
+        <div className="w-8" />
+      </div>
+
       <div className="flex border-b border-border flex-shrink-0">
-        {/* Team 1 Points - Left */}
         <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
           currentTeamIndex === 0 ? 'bg-muted/30' : ''
         }`}>
@@ -203,7 +221,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
           </div>
         </div>
 
-        {/* Cricket Grid - Center */}
         <div className="flex-1 border-x border-border">
           <div className="grid grid-cols-[1fr_auto_1fr]">
             {CRICKET_NUMBERS.map((num) => {
@@ -219,11 +236,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
 
               return (
                 <Fragment key={key}>
-                  <div className={`text-center py-1 border-b border-border/50 ${opacityClass} ${liveForT1 ? 'bg-primary/8' : ''}`}>
+                  <div className={`text-center py-1.5 border-b border-border/50 ${opacityClass} ${liveForT1 ? 'bg-primary/8' : ''}`}>
                     {renderMarks(Math.min(t1Marks, 3))}
                   </div>
                   <div
-                    className={`w-12 text-center py-1 border-b border-border/50 border-x border-border/30 ${opacityClass} ${dead ? 'line-through' : ''}`}
+                    className={`w-12 text-center py-1.5 border-b border-border/50 border-x border-border/30 ${opacityClass} ${dead ? 'line-through' : ''}`}
                     data-testid={`row-number-${key}`}
                   >
                     <span className={`font-mono text-sm font-semibold ${
@@ -232,7 +249,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
                       {num === 'B' ? 'BULL' : num}
                     </span>
                   </div>
-                  <div className={`text-center py-1 border-b border-border/50 ${opacityClass} ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
+                  <div className={`text-center py-1.5 border-b border-border/50 ${opacityClass} ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
                     {renderMarks(Math.min(t2Marks, 3))}
                   </div>
                 </Fragment>
@@ -241,7 +258,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
           </div>
         </div>
 
-        {/* Team 2 Points - Right */}
         <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
           currentTeamIndex === 1 ? 'bg-muted/30' : ''
         }`}>
@@ -277,7 +293,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
         </div>
       </div>
 
-      {/* Upcoming player rotation */}
       <div className="flex items-center gap-3 px-3 py-1 border-b border-border overflow-x-auto" data-testid="player-queue">
         {upcomingPlayers.map((up, i) => (
           <div key={`${up.player.id}-${i}`} className="flex items-center gap-1.5 shrink-0">
@@ -318,7 +333,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
         )}
       </div>
 
-      {/* Running Score Chart */}
       <div className="flex-1 min-h-0 flex py-1">
         <div className="flex-1 min-w-0 pl-2">
           {hasPoints ? (
@@ -519,6 +533,43 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
                   onClick={handleConfirmUndo}
                 >
                   Undo
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showLeaveConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-card rounded-md p-5 w-full max-w-xs text-center space-y-4 border border-card-border"
+            >
+              <p className="text-sm text-foreground">
+                Leave this game? Your progress is saved and you can resume later.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setShowLeaveConfirm(false)}
+                >
+                  Stay
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleLeave}
+                >
+                  Leave
                 </Button>
               </div>
             </motion.div>
