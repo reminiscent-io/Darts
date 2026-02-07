@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(npx vite build:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}

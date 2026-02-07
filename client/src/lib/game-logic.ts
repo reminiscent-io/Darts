@@ -1,4 +1,4 @@
-import { Game, Team, Player, DartEntry, PlayerRef, CricketNumber, CRICKET_NUMBERS, Multiplier } from './types';
+import { Game, GameSummary, Team, Player, DartEntry, PlayerRef, CricketNumber, CRICKET_NUMBERS, Multiplier } from './types';
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
@@ -333,4 +333,67 @@ export function loadGame(): Game | null {
 
 export function clearSavedGame(): void {
   localStorage.removeItem('cricket-darts-game');
+}
+
+// --- Game History ---
+
+const MAX_HISTORY = 50;
+
+export function saveGameToHistory(game: Game): void {
+  const winnerIndex = game.teams.findIndex(t => t.id === game.winnerId);
+  const summary: GameSummary = {
+    id: game.id,
+    team1Name: game.teams[0].name,
+    team2Name: game.teams[1].name,
+    team1Players: game.teams[0].players.map(p => p.name),
+    team2Players: game.teams[1].players.map(p => p.name),
+    team1Score: game.teams[0].points,
+    team2Score: game.teams[1].points,
+    winnerName: winnerIndex >= 0 ? game.teams[winnerIndex].name : '',
+    winnerTeamIndex: (winnerIndex >= 0 ? winnerIndex : 0) as 0 | 1,
+    totalDarts: game.dartHistory.length,
+    completedAt: new Date().toISOString(),
+  };
+  const history = loadGameHistory();
+  history.unshift(summary);
+  if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+  localStorage.setItem('cricket-darts-history', JSON.stringify(history));
+}
+
+export function loadGameHistory(): GameSummary[] {
+  const data = localStorage.getItem('cricket-darts-history');
+  if (!data) return [];
+  try {
+    return JSON.parse(data) as GameSummary[];
+  } catch {
+    return [];
+  }
+}
+
+export function clearGameHistory(): void {
+  localStorage.removeItem('cricket-darts-history');
+}
+
+// --- Player Name Memory ---
+
+export function savePlayerNames(names: string[]): void {
+  const existing = loadPlayerNames();
+  const merged = new Set(existing);
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (trimmed && !/^Player \d+$/.test(trimmed)) {
+      merged.add(trimmed);
+    }
+  }
+  localStorage.setItem('cricket-darts-players', JSON.stringify(Array.from(merged).sort()));
+}
+
+export function loadPlayerNames(): string[] {
+  const data = localStorage.getItem('cricket-darts-players');
+  if (!data) return [];
+  try {
+    return JSON.parse(data) as string[];
+  } catch {
+    return [];
+  }
 }

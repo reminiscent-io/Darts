@@ -150,9 +150,14 @@
   html, body, #root {
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     user-select: none;
+  }
+
+  #root {
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   }
 }
 

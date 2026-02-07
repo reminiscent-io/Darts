@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Cricket Darts - Offline</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: hsl(220 15% 10%);
+        color: hsl(210 20% 95%);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+      }
+      .icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: hsla(38, 95%, 55%, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+      }
+      .icon svg {
+        width: 32px;
+        height: 32px;
+        color: hsl(38, 95%, 55%);
+      }
+      h1 {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: hsl(210 10% 55%);
+        font-size: 0.875rem;
+        line-height: 1.5;
+        max-width: 280px;
+      }
+      button {
+        margin-top: 1.5rem;
+        padding: 0.625rem 1.5rem;
+        background: hsl(38, 95%, 55%);
+        color: hsl(220, 15%, 8%);
+        border: none;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+    </div>
+    <h1>You're Offline</h1>
+    <p>Check your internet connection and try again. Your game data is saved locally.</p>
+    <button onclick="window.location.reload()">Retry</button>
+  </body>
+</html>

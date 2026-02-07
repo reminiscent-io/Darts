@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "Cricket Darts Scorekeeper",
+  "short_name": "Cricket Darts",
+  "description": "Track your Cricket darts game with precision scoring and player stats",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1d23",
+  "theme_color": "#1a1d23",
+  "categories": ["games", "sports"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

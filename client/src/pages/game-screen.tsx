@@ -1,14 +1,18 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { Undo2, ChevronRight, X } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis } from "recharts";
+import {
+  ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
+} from "@/components/ui/chart";
 import {
   Game, CricketNumber, Multiplier, CRICKET_NUMBERS, DartEntry
 } from "@/lib/types";
 import {
   getCurrentPlayer, getNextPlayer, recordDart, advanceTurn, undoLastDart,
   removeDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
-  saveGame, confirmWin, getNumberValue
+  saveGame, confirmWin, getNumberValue, getPlayerStats
 } from "@/lib/game-logic";
 
 interface GameScreenProps {
@@ -27,6 +31,23 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
   const { player: currentPlayer, team: currentTeam, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const nextPlayerInfo = getNextPlayer(game);
   const dartsThrown = game.currentTurnDarts.length;
+
+  const upcomingPlayers = useMemo(() => {
+    const orderLen = game.turnOrder.length;
+    const result = [];
+    for (let i = 1; i < orderLen; i++) {
+      const ref = game.turnOrder[(game.currentTurnIndex + i) % orderLen];
+      const team = game.teams[ref.teamIndex];
+      const player = team.players.find(p => p.id === ref.playerId)!;
+      const stats = getPlayerStats(game, player.id);
+      result.push({
+        player,
+        teamIndex: ref.teamIndex,
+        points: stats.pointsContributed,
+      });
+    }
+    return result;
+  }, [game]);
 
   const handleDartEntry = useCallback((target: CricketNumber | 'miss', mult: Multiplier) => {
     const now = Date.now();
@@ -120,31 +141,121 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
 
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
 
+  const { chartData, chartConfig, allPlayers, hasPoints } = useMemo(() => {
+    const allDarts = [...game.dartHistory, ...game.currentTurnDarts];
+    const players = game.teams.flatMap((team, teamIdx) =>
+      team.players.map((p, playerIdx) => ({
+        id: p.id,
+        name: p.name,
+        teamIdx,
+        playerIdx,
+        isTopOfStack: playerIdx === team.players.length - 1,
+      }))
+    );
+
+    const cumulative: Record<string, number> = {};
+    players.forEach(p => { cumulative[p.id] = 0; });
+
+    const data: Array<Record<string, number>> = [
+      { dart: 0, ...Object.fromEntries(players.map(p => [p.id, 0])) }
+    ];
+
+    let scored = false;
+    for (let i = 0; i < allDarts.length; i++) {
+      const dart = allDarts[i];
+      if (dart.pointsScored > 0) {
+        cumulative[dart.playerId] = (cumulative[dart.playerId] || 0) + dart.pointsScored;
+        scored = true;
+      }
+      data.push({
+        dart: i + 1,
+        ...Object.fromEntries(players.map(p => [p.id, cumulative[p.id]]))
+      });
+    }
+
+    const config: ChartConfig = {};
+    players.forEach(p => {
+      const lightness = p.teamIdx === 0 ? 55 + p.playerIdx * 12 : 50 + p.playerIdx * 12;
+      const color = p.teamIdx === 0
+        ? `hsl(38 95% ${lightness}%)`
+        : `hsl(195 85% ${lightness}%)`;
+      config[p.id] = { label: p.name, color };
+    });
+
+    return { chartData: data, chartConfig: config, allPlayers: players, hasPoints: scored };
+  }, [game.dartHistory, game.currentTurnDarts, game.teams]);
+
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
-      <div className="grid grid-cols-2 border-b border-border">
-        {game.teams.map((team, idx) => (
-          <div
-            key={team.id}
-            className={`px-3 py-2 text-center ${
-              idx === 0 ? 'border-r border-border' : ''
-            } ${currentTeamIndex === idx ? 'bg-muted/30' : ''}`}
+      <div className="flex border-b border-border flex-shrink-0">
+        {/* Team 1 Points - Left */}
+        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
+          currentTeamIndex === 0 ? 'bg-muted/30' : ''
+        }`}>
+          <div className="text-xs font-medium tracking-wider uppercase truncate text-primary"
+            data-testid="text-team1-name"
           >
-            <div className={`text-xs font-medium tracking-wider uppercase truncate ${
-              idx === 0 ? 'text-primary' : 'text-chart-2'
-            }`}
-            data-testid={`text-team${idx + 1}-name`}
-            >
-              {team.name}
-            </div>
-            <div className="font-mono text-2xl font-bold tabular-nums" data-testid={`text-team${idx + 1}-points`}>
-              {team.points}
-            </div>
+            {game.teams[0].name}
           </div>
-        ))}
+          <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team1-points">
+            {game.teams[0].points}
+          </div>
+        </div>
+
+        {/* Cricket Grid - Center (flat grid so all numbers share one column) */}
+        <div className="flex-1 border-x border-border">
+          <div className="grid grid-cols-[1fr_auto_1fr]">
+            {CRICKET_NUMBERS.map((num) => {
+              const key = String(num);
+              const t1Marks = game.teams[0].marks[key] || 0;
+              const t2Marks = game.teams[1].marks[key] || 0;
+              const dead = isNumberDead(game, num);
+              const t1Closed = isNumberClosedByTeam(game.teams[0], num);
+              const t2Closed = isNumberClosedByTeam(game.teams[1], num);
+              const liveForT1 = t1Closed && !t2Closed;
+              const liveForT2 = t2Closed && !t1Closed;
+              const opacityClass = dead ? 'opacity-25' : '';
+
+              return (
+                <Fragment key={key}>
+                  <div className={`text-center py-1 border-b border-border/50 ${opacityClass} ${liveForT1 ? 'bg-primary/8' : ''}`}>
+                    {renderMarks(Math.min(t1Marks, 3))}
+                  </div>
+                  <div
+                    className={`w-12 text-center py-1 border-b border-border/50 border-x border-border/30 ${opacityClass} ${dead ? 'line-through' : ''}`}
+                    data-testid={`row-number-${key}`}
+                  >
+                    <span className={`font-mono text-sm font-semibold ${
+                      dead ? 'text-muted-foreground/40' : 'text-foreground'
+                    }`}>
+                      {num === 'B' ? 'BULL' : num}
+                    </span>
+                  </div>
+                  <div className={`text-center py-1 border-b border-border/50 ${opacityClass} ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
+                    {renderMarks(Math.min(t2Marks, 3))}
+                  </div>
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Team 2 Points - Right */}
+        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
+          currentTeamIndex === 1 ? 'bg-muted/30' : ''
+        }`}>
+          <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2"
+            data-testid="text-team2-name"
+          >
+            {game.teams[1].name}
+          </div>
+          <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team2-points">
+            {game.teams[1].points}
+          </div>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-b border-border">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-b border-border/50">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-2 h-2 rounded-full shrink-0 ${
             currentTeamIndex === 0 ? 'bg-primary' : 'bg-chart-2'
@@ -165,45 +276,21 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
         </div>
       </div>
 
-      <div className="flex-shrink-0">
-        <div className="grid grid-cols-[1fr_auto_1fr]">
-          {CRICKET_NUMBERS.map((num) => {
-            const key = String(num);
-            const t1Marks = game.teams[0].marks[key] || 0;
-            const t2Marks = game.teams[1].marks[key] || 0;
-            const dead = isNumberDead(game, num);
-            const t1Closed = isNumberClosedByTeam(game.teams[0], num);
-            const t2Closed = isNumberClosedByTeam(game.teams[1], num);
-            const liveForT1 = t1Closed && !t2Closed;
-            const liveForT2 = t2Closed && !t1Closed;
-
-            return (
-              <div
-                key={key}
-                className={`grid grid-cols-[1fr_auto_1fr] items-center border-b border-border/50 ${
-                  dead ? 'opacity-25' : ''
-                }`}
-                data-testid={`row-number-${key}`}
-              >
-                <div className={`text-center py-1 ${liveForT1 ? 'bg-primary/8' : ''}`}>
-                  {renderMarks(Math.min(t1Marks, 3))}
-                </div>
-                <div className={`w-12 text-center py-1 border-x border-border/30 ${
-                  dead ? 'line-through' : ''
-                }`}>
-                  <span className={`font-mono text-sm font-semibold ${
-                    dead ? 'text-muted-foreground/40' : 'text-foreground'
-                  }`}>
-                    {num === 'B' ? 'BULL' : num}
-                  </span>
-                </div>
-                <div className={`text-center py-1 ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
-                  {renderMarks(Math.min(t2Marks, 3))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Upcoming player rotation */}
+      <div className="flex items-center gap-3 px-3 py-1 border-b border-border overflow-x-auto" data-testid="player-queue">
+        {upcomingPlayers.map((up, i) => (
+          <div key={`${up.player.id}-${i}`} className="flex items-center gap-1.5 shrink-0">
+            <div className={`w-1.5 h-1.5 rounded-full ${
+              up.teamIndex === 0 ? 'bg-primary' : 'bg-chart-2'
+            }`} />
+            <span className="text-xs text-muted-foreground truncate max-w-[80px]">
+              {up.player.name}
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums">
+              {up.points}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div className="min-h-[36px] flex items-center gap-1.5 px-3 py-1 border-b border-border bg-muted/10 overflow-x-auto" data-testid="dart-tray">
@@ -230,7 +317,42 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
         )}
       </div>
 
-      <div className="flex-1 flex flex-col justify-end px-2 pb-2 gap-1.5 pt-1.5" data-testid="input-area">
+      {/* Running Score Chart */}
+      <div className="flex-1 min-h-0 flex py-1">
+        <div className="flex-1 min-w-0 pl-2">
+          {hasPoints ? (
+            <ChartContainer config={chartConfig} className="h-full w-full !aspect-auto">
+              <AreaChart data={chartData}>
+                <XAxis dataKey="dart" hide />
+                <YAxis hide />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                {allPlayers.map((player) => (
+                  <Area
+                    key={player.id}
+                    dataKey={player.id}
+                    type="monotone"
+                    stackId={`team${player.teamIdx}`}
+                    fill={`var(--color-${player.id})`}
+                    stroke={`var(--color-${player.id})`}
+                    fillOpacity={0.5}
+                    strokeWidth={player.isTopOfStack ? 2 : 0}
+                  />
+                ))}
+              </AreaChart>
+            </ChartContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <span className="text-xs text-muted-foreground/30 italic">score chart appears here</span>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col justify-between shrink-0 w-8 py-2 pr-2">
+          <span className="font-mono text-xs font-bold tabular-nums text-primary">{game.teams[0].points}</span>
+          <span className="font-mono text-xs font-bold tabular-nums text-chart-2">{game.teams[1].points}</span>
+        </div>
+      </div>
+
+      <div className="shrink-0 flex flex-col px-2 pb-2 gap-1.5 pt-1.5" data-testid="input-area">
         <div className="flex gap-1.5">
           <Button
             data-testid="button-miss"

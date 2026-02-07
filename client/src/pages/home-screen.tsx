@@ -1,16 +1,18 @@
 import { Button } from "@/components/ui/button";
-import { loadGame } from "@/lib/game-logic";
+import { loadGame, loadGameHistory } from "@/lib/game-logic";
 import { motion } from "framer-motion";
-import { Target, Play, RotateCcw } from "lucide-react";
+import { Target, Play, RotateCcw, History } from "lucide-react";
 
 interface HomeScreenProps {
   onNewGame: () => void;
   onResumeGame: () => void;
+  onViewHistory: () => void;
 }
 
-export default function HomeScreen({ onNewGame, onResumeGame }: HomeScreenProps) {
+export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: HomeScreenProps) {
   const savedGame = loadGame();
   const canResume = savedGame && savedGame.status === 'in_progress';
+  const hasHistory = loadGameHistory().length > 0;
 
   return (
     <div className="h-full flex flex-col items-center justify-center px-6">
@@ -62,6 +64,25 @@ export default function HomeScreen({ onNewGame, onResumeGame }: HomeScreenProps)
             >
               <RotateCcw className="w-4 h-4" />
               Resume Game
+            </Button>
+          </motion.div>
+        )}
+
+        {hasHistory && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, delay: 0.4 }}
+          >
+            <Button
+              data-testid="button-game-history"
+              variant="ghost"
+              size="lg"
+              className="w-full text-base gap-2 text-muted-foreground"
+              onClick={onViewHistory}
+            >
+              <History className="w-4 h-4" />
+              Game History
             </Button>
           </motion.div>
         )}

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, X, Shuffle, Play } from "lucide-react";
+import { loadPlayerNames } from "@/lib/game-logic";
 
 interface SetupScreenProps {
   onBack: () => void;
@@ -14,12 +15,81 @@ interface SetupScreenProps {
   ) => void;
 }
 
+function PlayerNameInput({
+  value,
+  onChange,
+  placeholder,
+  testId,
+  savedNames,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  testId: string;
+  savedNames: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value.trim()
+    ? savedNames.filter(
+        (n) =>
+          n.toLowerCase().includes(value.toLowerCase()) &&
+          n.toLowerCase() !== value.toLowerCase()
+      )
+    : savedNames;
+
+  const showDropdown = open && filtered.length > 0;
+
+  return (
+    <div ref={wrapperRef} className="relative flex-1">
+      <input
+        data-testid={testId}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          // Small delay so click on suggestion registers before closing
+          setTimeout(() => setOpen(false), 150);
+        }}
+        placeholder={placeholder}
+        className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50 transition-colors"
+        autoComplete="off"
+      />
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-popover border border-border rounded-md shadow-md max-h-32 overflow-y-auto">
+          {filtered.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onChange(name);
+                setOpen(false);
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
   const [team1Name, setTeam1Name] = useState("Team 1");
   const [team2Name, setTeam2Name] = useState("Team 2");
   const [team1Players, setTeam1Players] = useState<string[]>([""]);
   const [team2Players, setTeam2Players] = useState<string[]>([""]);
   const [firstTeam, setFirstTeam] = useState(0);
+  const [savedNames, setSavedNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSavedNames(loadPlayerNames());
+  }, []);
 
   const canStart = team1Players.length >= 1 && team2Players.length >= 1;
 
@@ -105,13 +175,12 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
               <div className="space-y-2 pl-4">
                 {players.map((player, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <input
-                      data-testid={`input-team${teamNum}-player${idx}`}
-                      type="text"
+                    <PlayerNameInput
                       value={player}
-                      onChange={(e) => updatePlayer(teamNum as 1 | 2, idx, e.target.value)}
+                      onChange={(val) => updatePlayer(teamNum as 1 | 2, idx, val)}
                       placeholder={`Player ${idx + 1}`}
-                      className="flex-1 bg-muted/50 border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50 transition-colors"
+                      testId={`input-team${teamNum}-player${idx}`}
+                      savedNames={savedNames}
                     />
                     {players.length > 1 && (
                       <Button

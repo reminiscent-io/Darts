@@ -47,4 +47,18 @@ export interface Game {
 
 export type Multiplier = 1 | 2 | 3;
 
-export type AppScreen = 'home' | 'setup' | 'game' | 'post-game';
+export type AppScreen = 'home' | 'setup' | 'game' | 'post-game' | 'history';
+
+export interface GameSummary {
+  id: string;
+  team1Name: string;
+  team2Name: string;
+  team1Players: string[];
+  team2Players: string[];
+  team1Score: number;
+  team2Score: number;
+  winnerName: string;
+  winnerTeamIndex: 0 | 1;
+  totalDarts: number;
+  completedAt: string;
+}

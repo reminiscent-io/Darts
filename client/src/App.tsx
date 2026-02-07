@@ -2,11 +2,12 @@ import { useState, useCallback, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game } from "@/lib/types";
-import { createGame, loadGame, saveGame, clearSavedGame } from "@/lib/game-logic";
+import { createGame, loadGame, saveGame, clearSavedGame, saveGameToHistory, savePlayerNames } from "@/lib/game-logic";
 import HomeScreen from "@/pages/home-screen";
 import SetupScreen from "@/pages/setup-screen";
 import GameScreen from "@/pages/game-screen";
 import PostGameScreen from "@/pages/post-game-screen";
+import HistoryScreen from "@/pages/history-screen";
 
 function App() {
   const [screen, setScreen] = useState<AppScreen>('home');
@@ -47,6 +48,9 @@ function App() {
 
   const handleGameEnd = useCallback((finalGame: Game) => {
     setGame(finalGame);
+    saveGameToHistory(finalGame);
+    const allNames = finalGame.teams.flatMap(t => t.players.map(p => p.name));
+    savePlayerNames(allNames);
     setScreen('post-game');
   }, []);
 
@@ -70,6 +74,10 @@ function App() {
     setScreen('home');
   }, []);
 
+  const handleViewHistory = useCallback(() => {
+    setScreen('history');
+  }, []);
+
   const handleBackToHome = useCallback(() => {
     setScreen('home');
   }, []);
@@ -86,7 +94,7 @@ function App() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <HomeScreen onNewGame={handleNewGame} onResumeGame={handleResumeGame} />
+            <HomeScreen onNewGame={handleNewGame} onResumeGame={handleResumeGame} onViewHistory={handleViewHistory} />
           </motion.div>
         )}
 
@@ -131,6 +139,18 @@ function App() {
               onNewGame={handleNewGame}
               onHome={handleHome}
             />
+          </motion.div>
+        )}
+        {screen === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            <HistoryScreen onBack={handleBackToHome} />
           </motion.div>
         )}
       </AnimatePresence>
