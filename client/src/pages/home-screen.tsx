@@ -1,5 +1,6 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { loadGame, loadGameHistory } from "@/lib/game-logic";
+import { loadGame, loadGameFromDb, loadGameHistory, loadGameHistoryFromDb } from "@/lib/game-logic";
 import { motion } from "framer-motion";
 import { Target, Play, RotateCcw, History } from "lucide-react";
 
@@ -10,9 +11,20 @@ interface HomeScreenProps {
 }
 
 export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: HomeScreenProps) {
-  const savedGame = loadGame();
-  const canResume = savedGame && savedGame.status === 'in_progress';
-  const hasHistory = loadGameHistory().length > 0;
+  const [canResume, setCanResume] = useState(() => {
+    const saved = loadGame();
+    return !!(saved && saved.status === 'in_progress');
+  });
+  const [hasHistory, setHasHistory] = useState(() => loadGameHistory().length > 0);
+
+  useEffect(() => {
+    loadGameFromDb().then((g) => {
+      if (g && g.status === 'in_progress') setCanResume(true);
+    });
+    loadGameHistoryFromDb().then((h) => {
+      if (h.length > 0) setHasHistory(true);
+    });
+  }, []);
 
   return (
     <div className="h-full flex flex-col items-center justify-center px-6">

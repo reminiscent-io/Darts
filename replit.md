@@ -27,24 +27,37 @@ Preferred communication style: Simple, everyday language.
 ### Game Logic
 - All game logic lives in `client/src/lib/game-logic.ts`
 - Types defined in `client/src/lib/types.ts` — Cricket numbers (20, 19, 18, 17, 16, 15, Bull), teams, players, dart entries, game state
-- Games are saved to/loaded from `localStorage`
+- Games are saved to both localStorage (fast cache) and PostgreSQL database (durable persistence)
+- On load, the app checks localStorage first, then falls back to the database
 - Turn order supports unequal team sizes (e.g., 2v1)
-- No backend database needed for game functionality
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express 5 (via `tsx` for TypeScript execution)
 - **Server entry**: `server/index.ts` creates an HTTP server, registers routes, and serves static files or Vite dev middleware
-- **Routes**: `server/routes.ts` — currently empty placeholder, all routes should be prefixed with `/api`
-- **Storage**: `server/storage.ts` — implements `IStorage` interface with `MemStorage` (in-memory Map). Has basic user CRUD as scaffolding
+- **Database connection**: `server/db.ts` — creates a PostgreSQL pool and Drizzle ORM instance
+- **Routes**: `server/routes.ts` — API routes for games, history, and player names, all prefixed with `/api`
+- **Storage**: `server/storage.ts` — implements `IStorage` interface with `DatabaseStorage` using Drizzle ORM for PostgreSQL CRUD operations
 - **Dev mode**: Vite dev server runs as middleware (`server/vite.ts`) with HMR
 - **Production**: Client is built to `dist/public/`, server is bundled with esbuild to `dist/index.cjs`
 
 ### Database
-- **ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema**: `shared/schema.ts` — currently only has a `users` table (id, username, password). Uses `drizzle-zod` for validation schemas
+- **ORM**: Drizzle ORM with PostgreSQL dialect via `pg` driver (node-postgres)
+- **Schema**: `shared/schema.ts` defines three tables:
+  - `games` — stores active/completed game state as JSONB (id, status, game_state, created_at, updated_at)
+  - `game_summaries` — denormalized completed game summaries for history view (team names, scores, players, winner, darts count)
+  - `player_names` — remembered player names for autocomplete suggestions (unique name constraint)
 - **Migrations**: Output to `./migrations/` directory
 - **Push command**: `npm run db:push` uses `drizzle-kit push`
-- **Note**: The database is scaffolded but not actively used by the game — game state lives in localStorage. The database exists for potential future features (user accounts, game history, etc.)
+
+### API Endpoints
+- `GET /api/games/active` — returns the most recent in-progress game state, or null
+- `POST /api/games` — upserts a game (body: `{ id, status, gameState }`)
+- `DELETE /api/games/:id` — deletes a game record
+- `GET /api/history` — returns completed game summaries, ordered by most recent
+- `POST /api/history` — saves a completed game summary
+- `DELETE /api/history` — clears all game history
+- `GET /api/players` — returns sorted list of remembered player names
+- `POST /api/players` — adds player names (body: `{ names: string[] }`, deduplicates automatically)
 
 ### Build System
 - **Dev**: `npm run dev` — runs `tsx server/index.ts` with Vite middleware

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Plus, X, Shuffle, Play } from "lucide-react";
-import { loadPlayerNames } from "@/lib/game-logic";
+import { loadPlayerNames, loadPlayerNamesFromDb } from "@/lib/game-logic";
 import { GameType } from "@/lib/types";
 
 export interface GameSetupConfig {
@@ -112,6 +112,9 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
 
   useEffect(() => {
     setSavedNames(loadPlayerNames());
+    loadPlayerNamesFromDb().then((names) => {
+      if (names.length > 0) setSavedNames(names);
+    });
   }, []);
 
   const isTeamMode = gameType === 'cricket' || x01Mode === 'team';

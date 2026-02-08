@@ -6,11 +6,60 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.get("/api/games/active", async (_req, res) => {
+    const game = await storage.getActiveGame();
+    if (!game) return res.json(null);
+    res.json(game.gameState);
+  });
+
+  app.post("/api/games", async (req, res) => {
+    const { id, status, gameState } = req.body;
+    if (!id || !gameState) {
+      return res.status(400).json({ message: "Missing id or gameState" });
+    }
+    await storage.upsertGame({ id, status: status || "in_progress", gameState });
+    res.json({ ok: true });
+  });
+
+  app.delete("/api/games/:id", async (req, res) => {
+    await storage.deleteGame(req.params.id);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/history", async (_req, res) => {
+    const summaries = await storage.getGameSummaries();
+    res.json(summaries);
+  });
+
+  app.post("/api/history", async (req, res) => {
+    const summary = req.body;
+    if (!summary.id) {
+      return res.status(400).json({ message: "Missing id" });
+    }
+    await storage.createGameSummary(summary);
+    res.json({ ok: true });
+  });
+
+  app.delete("/api/history", async (_req, res) => {
+    await storage.clearGameSummaries();
+    res.json({ ok: true });
+  });
+
+  app.get("/api/players", async (_req, res) => {
+    const names = await storage.getPlayerNames();
+    res.json(names);
+  });
+
+  app.post("/api/players", async (req, res) => {
+    const { names } = req.body;
+    if (!Array.isArray(names)) {
+      return res.status(400).json({ message: "names must be an array" });
+    }
+    await storage.addPlayerNames(names);
+    const updated = await storage.getPlayerNames();
+    res.json(updated);
+  });
 
   return httpServer;
 }

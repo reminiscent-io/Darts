@@ -323,6 +323,8 @@ export function confirmWin(game: Game, teamId: string): Game {
 
 // --- Storage ---
 
+const MAX_HISTORY = 50;
+
 const STORAGE_KEYS = {
   game: 'darts-game',
   history: 'darts-history',
@@ -437,8 +439,6 @@ export function clearSavedGame(): void {
 }
 
 // --- Game History ---
-
-const MAX_HISTORY = 50;
 
 export function saveGameToHistory(game: Game): void {
   const winnerIndex = game.teams.findIndex(t => t.id === game.winnerId);

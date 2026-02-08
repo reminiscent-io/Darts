@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Trophy, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { GameSummary } from "@/lib/types";
-import { loadGameHistory, clearGameHistory } from "@/lib/game-logic";
+import { loadGameHistory, loadGameHistoryFromDb, clearGameHistory } from "@/lib/game-logic";
 
 interface HistoryScreenProps {
   onBack: () => void;
@@ -43,6 +43,10 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
   const [history, setHistory] = useState<GameSummary[]>(() => loadGameHistory());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+
+  useEffect(() => {
+    loadGameHistoryFromDb().then((h) => setHistory(h));
+  }, []);
 
   const handleClear = () => {
     if (!confirmClear) {
