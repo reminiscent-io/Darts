@@ -1,6 +1,6 @@
-import { Game, GameSummary, Team, Player, DartEntry, PlayerRef, CricketNumber, CRICKET_NUMBERS, Multiplier } from './types';
+import { Game, GameSummary, CricketGame, CricketTeam, Player, DartEntry, PlayerRef, CricketNumber, CRICKET_NUMBERS, Multiplier } from './types';
 
-function generateId(): string {
+export function generateId(): string {
   return Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 }
 
@@ -8,17 +8,17 @@ export function getNumberValue(target: CricketNumber): number {
   return target === 'B' ? 25 : target;
 }
 
-export function createGame(
+export function createCricketGame(
   team1Name: string,
   team1Players: string[],
   team2Name: string,
   team2Players: string[],
   firstTeamIndex: number = 0
-): Game {
+): CricketGame {
   const team1Id = generateId();
   const team2Id = generateId();
 
-  const team1: Team = {
+  const team1: CricketTeam = {
     id: team1Id,
     name: team1Name || 'Team 1',
     players: team1Players.map((name, i) => ({
@@ -30,7 +30,7 @@ export function createGame(
     points: 0,
   };
 
-  const team2: Team = {
+  const team2: CricketTeam = {
     id: team2Id,
     name: team2Name || 'Team 2',
     players: team2Players.map((name, i) => ({
@@ -42,10 +42,11 @@ export function createGame(
     points: 0,
   };
 
-  const teams: [Team, Team] = firstTeamIndex === 0 ? [team1, team2] : [team2, team1];
+  const teams: [CricketTeam, CricketTeam] = firstTeamIndex === 0 ? [team1, team2] : [team2, team1];
   const turnOrder = buildTurnOrder(teams);
 
   return {
+    gameType: 'cricket',
     id: generateId(),
     teams,
     currentTurnIndex: 0,
@@ -57,13 +58,13 @@ export function createGame(
   };
 }
 
-function buildTurnOrder(teams: [Team, Team]): PlayerRef[] {
+export function buildTurnOrder(teams: Array<{ id: string; players: Player[] }>): PlayerRef[] {
   const order: PlayerRef[] = [];
-  const maxPlayers = Math.max(teams[0].players.length, teams[1].players.length);
+  const maxPlayers = Math.max(...teams.map(t => t.players.length));
   const totalRounds = maxPlayers;
 
   for (let round = 0; round < totalRounds; round++) {
-    for (let teamIdx = 0; teamIdx < 2; teamIdx++) {
+    for (let teamIdx = 0; teamIdx < teams.length; teamIdx++) {
       const team = teams[teamIdx];
       const playerIdx = round % team.players.length;
       order.push({
@@ -77,29 +78,32 @@ function buildTurnOrder(teams: [Team, Team]): PlayerRef[] {
   return order;
 }
 
-export function getCurrentPlayer(game: Game): { player: Player; team: Team; teamIndex: number } {
+export function getCurrentPlayer(game: Game): { player: Player; teamIndex: number } {
   const ref = game.turnOrder[game.currentTurnIndex % game.turnOrder.length];
   const teamIndex = ref.teamIndex;
   const team = game.teams[teamIndex];
   const player = team.players.find(p => p.id === ref.playerId)!;
-  return { player, team, teamIndex };
+  return { player, teamIndex };
 }
 
-export function getNextPlayer(game: Game): { player: Player; team: Team; teamIndex: number } {
+export function getNextPlayer(game: Game): { player: Player; teamIndex: number } {
   const nextIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
   const ref = game.turnOrder[nextIndex];
   const teamIndex = ref.teamIndex;
   const team = game.teams[teamIndex];
   const player = team.players.find(p => p.id === ref.playerId)!;
-  return { player, team, teamIndex };
+  return { player, teamIndex };
 }
 
-export function recordDart(
-  game: Game,
+// --- Cricket-specific logic ---
+
+export function recordCricketDart(
+  game: CricketGame,
   target: CricketNumber | 'miss',
   multiplier: Multiplier
-): { game: Game; dart: DartEntry; isWin: boolean } {
-  const { player, team, teamIndex } = getCurrentPlayer(game);
+): { game: CricketGame; dart: DartEntry; isWin: boolean } {
+  const { player, teamIndex } = getCurrentPlayer(game);
+  const team = game.teams[teamIndex];
   const opponentTeam = game.teams[1 - teamIndex];
 
   let marksApplied = 0;
@@ -136,7 +140,7 @@ export function recordDart(
     timestamp: new Date().toISOString(),
   };
 
-  const newTeams: [Team, Team] = [
+  const newTeams: [CricketTeam, CricketTeam] = [
     { ...game.teams[0] },
     { ...game.teams[1] },
   ];
@@ -152,19 +156,19 @@ export function recordDart(
   const newCurrentTurnDarts = [...game.currentTurnDarts, dart];
   const newDartHistory = [...game.dartHistory, dart];
 
-  const newGame: Game = {
+  const newGame: CricketGame = {
     ...game,
     teams: newTeams,
     currentTurnDarts: newCurrentTurnDarts,
     dartHistory: newDartHistory,
   };
 
-  const isWin = checkWinCondition(newGame, teamIndex);
+  const isWin = checkCricketWinCondition(newGame, teamIndex);
 
   return { game: newGame, dart, isWin };
 }
 
-export function checkWinCondition(game: Game, teamIndex: number): boolean {
+export function checkCricketWinCondition(game: CricketGame, teamIndex: number): boolean {
   const team = game.teams[teamIndex];
   const opponent = game.teams[1 - teamIndex];
 
@@ -179,13 +183,13 @@ export function advanceTurn(game: Game): Game {
     ...game,
     currentTurnIndex: (game.currentTurnIndex + 1) % game.turnOrder.length,
     currentTurnDarts: [],
-  };
+  } as Game;
 }
 
-export function undoLastDart(game: Game): { game: Game; crossedTurnBoundary: boolean } {
+export function undoLastCricketDart(game: CricketGame): { game: CricketGame; crossedTurnBoundary: boolean } {
   if (game.currentTurnDarts.length > 0) {
     const lastDart = game.currentTurnDarts[game.currentTurnDarts.length - 1];
-    const revertedGame = revertDart(game, lastDart);
+    const revertedGame = revertCricketDart(game, lastDart);
     return {
       game: {
         ...revertedGame,
@@ -218,7 +222,7 @@ export function undoLastDart(game: Game): { game: Game; crossedTurnBoundary: boo
   }
 
   const lastDart = prevTurnDarts[prevTurnDarts.length - 1];
-  const revertedGame = revertDart(game, lastDart);
+  const revertedGame = revertCricketDart(game, lastDart);
 
   return {
     game: {
@@ -231,8 +235,8 @@ export function undoLastDart(game: Game): { game: Game; crossedTurnBoundary: boo
   };
 }
 
-function revertDart(game: Game, dart: DartEntry): Game {
-  const newTeams: [Team, Team] = [
+function revertCricketDart(game: CricketGame, dart: DartEntry): CricketGame {
+  const newTeams: [CricketTeam, CricketTeam] = [
     { ...game.teams[0] },
     { ...game.teams[1] },
   ];
@@ -243,7 +247,7 @@ function revertDart(game: Game, dart: DartEntry): Game {
       const team = newTeams[teamIndex];
       const key = String(dart.target);
       team.marks = { ...team.marks };
-      team.marks[key] = Math.max(0, (team.marks[key] || 0) - dart.marksApplied);
+      team.marks[key] = Math.max(0, (team.marks[key] || 0) - (dart.marksApplied || 0));
       team.points = Math.max(0, team.points - dart.pointsScored);
     }
   }
@@ -251,11 +255,11 @@ function revertDart(game: Game, dart: DartEntry): Game {
   return { ...game, teams: newTeams };
 }
 
-export function removeDartAtIndex(game: Game, dartIndex: number): Game {
+export function removeCricketDartAtIndex(game: CricketGame, dartIndex: number): CricketGame {
   const dart = game.currentTurnDarts[dartIndex];
   if (!dart) return game;
 
-  const revertedGame = revertDart(game, dart);
+  const revertedGame = revertCricketDart(game, dart);
 
   const newCurrentTurnDarts = [
     ...revertedGame.currentTurnDarts.slice(0, dartIndex),
@@ -283,18 +287,18 @@ export function formatDart(dart: DartEntry): string {
   return `${prefix}${dart.target}`;
 }
 
-export function isNumberDead(game: Game, num: CricketNumber): boolean {
+export function isNumberDead(game: CricketGame, num: CricketNumber): boolean {
   const key = String(num);
   return (game.teams[0].marks[key] || 0) >= 3 && (game.teams[1].marks[key] || 0) >= 3;
 }
 
-export function isNumberClosedByTeam(team: Team, num: CricketNumber): boolean {
+export function isNumberClosedByTeam(team: CricketTeam, num: CricketNumber): boolean {
   return (team.marks[String(num)] || 0) >= 3;
 }
 
-export function getPlayerStats(game: Game, playerId: string) {
+export function getCricketPlayerStats(game: CricketGame, playerId: string) {
   const playerDarts = game.dartHistory.filter(d => d.playerId === playerId);
-  const totalMarks = playerDarts.reduce((sum, d) => sum + d.marksApplied, 0);
+  const totalMarks = playerDarts.reduce((sum, d) => sum + (d.marksApplied || 0), 0);
   const pointsContributed = playerDarts.reduce((sum, d) => sum + d.pointsScored, 0);
 
   const roundsPlayed = Math.ceil(playerDarts.length / 3) || 1;
@@ -314,25 +318,94 @@ export function confirmWin(game: Game, teamId: string): Game {
     ...game,
     status: 'completed',
     winnerId: teamId,
-  };
+  } as Game;
+}
+
+// --- Storage ---
+
+const STORAGE_KEYS = {
+  game: 'darts-game',
+  history: 'darts-history',
+  players: 'darts-players',
+};
+
+const OLD_STORAGE_KEYS = {
+  game: 'cricket-darts-game',
+  history: 'cricket-darts-history',
+  players: 'cricket-darts-players',
+};
+
+export function migrateStorage(): void {
+  // Migrate saved game
+  const oldGame = localStorage.getItem(OLD_STORAGE_KEYS.game);
+  if (oldGame && !localStorage.getItem(STORAGE_KEYS.game)) {
+    try {
+      const parsed = JSON.parse(oldGame);
+      parsed.gameType = 'cricket';
+      localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(parsed));
+      localStorage.removeItem(OLD_STORAGE_KEYS.game);
+    } catch { /* ignore */ }
+  }
+
+  // Migrate history
+  const oldHistory = localStorage.getItem(OLD_STORAGE_KEYS.history);
+  if (oldHistory && !localStorage.getItem(STORAGE_KEYS.history)) {
+    try {
+      const parsed = JSON.parse(oldHistory) as Array<Record<string, unknown>>;
+      const migrated: GameSummary[] = parsed.map(old => ({
+        id: (old.id as string) || generateId(),
+        gameType: 'cricket' as const,
+        teams: [
+          {
+            name: (old.team1Name as string) || 'Team 1',
+            players: (old.team1Players as string[]) || [],
+            score: (old.team1Score as number) || 0,
+            isWinner: (old.winnerTeamIndex as number) === 0,
+          },
+          {
+            name: (old.team2Name as string) || 'Team 2',
+            players: (old.team2Players as string[]) || [],
+            score: (old.team2Score as number) || 0,
+            isWinner: (old.winnerTeamIndex as number) === 1,
+          },
+        ],
+        totalDarts: (old.totalDarts as number) || 0,
+        completedAt: (old.completedAt as string) || new Date().toISOString(),
+      }));
+      localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(migrated));
+      localStorage.removeItem(OLD_STORAGE_KEYS.history);
+    } catch { /* ignore */ }
+  }
+
+  // Migrate players
+  const oldPlayers = localStorage.getItem(OLD_STORAGE_KEYS.players);
+  if (oldPlayers && !localStorage.getItem(STORAGE_KEYS.players)) {
+    localStorage.setItem(STORAGE_KEYS.players, oldPlayers);
+    localStorage.removeItem(OLD_STORAGE_KEYS.players);
+  }
 }
 
 export function saveGame(game: Game): void {
-  localStorage.setItem('cricket-darts-game', JSON.stringify(game));
+  localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(game));
 }
 
 export function loadGame(): Game | null {
-  const data = localStorage.getItem('cricket-darts-game');
+  const data = localStorage.getItem(STORAGE_KEYS.game);
   if (!data) return null;
   try {
-    return JSON.parse(data) as Game;
+    const parsed = JSON.parse(data) as Game;
+    // Ensure gameType exists (fallback for old data)
+    if (!parsed.gameType) {
+      (parsed as Record<string, unknown>).gameType = 'cricket';
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
 export function clearSavedGame(): void {
-  localStorage.removeItem('cricket-darts-game');
+  localStorage.removeItem(STORAGE_KEYS.game);
 }
 
 // --- Game History ---
@@ -341,27 +414,31 @@ const MAX_HISTORY = 50;
 
 export function saveGameToHistory(game: Game): void {
   const winnerIndex = game.teams.findIndex(t => t.id === game.winnerId);
+
   const summary: GameSummary = {
     id: game.id,
-    team1Name: game.teams[0].name,
-    team2Name: game.teams[1].name,
-    team1Players: game.teams[0].players.map(p => p.name),
-    team2Players: game.teams[1].players.map(p => p.name),
-    team1Score: game.teams[0].points,
-    team2Score: game.teams[1].points,
-    winnerName: winnerIndex >= 0 ? game.teams[winnerIndex].name : '',
-    winnerTeamIndex: (winnerIndex >= 0 ? winnerIndex : 0) as 0 | 1,
+    gameType: game.gameType,
+    teams: game.teams.map((t, idx) => ({
+      name: t.name,
+      players: t.players.map(p => p.name),
+      score: game.gameType === 'cricket'
+        ? (t as CricketTeam).points
+        : (game as { startingScore: number }).startingScore - (t as { remainingScore: number }).remainingScore,
+      isWinner: idx === winnerIndex,
+    })),
     totalDarts: game.dartHistory.length,
     completedAt: new Date().toISOString(),
+    ...(game.gameType === 'x01' ? { startingScore: (game as { startingScore: number }).startingScore } : {}),
   };
+
   const history = loadGameHistory();
   history.unshift(summary);
   if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
-  localStorage.setItem('cricket-darts-history', JSON.stringify(history));
+  localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(history));
 }
 
 export function loadGameHistory(): GameSummary[] {
-  const data = localStorage.getItem('cricket-darts-history');
+  const data = localStorage.getItem(STORAGE_KEYS.history);
   if (!data) return [];
   try {
     return JSON.parse(data) as GameSummary[];
@@ -371,7 +448,7 @@ export function loadGameHistory(): GameSummary[] {
 }
 
 export function clearGameHistory(): void {
-  localStorage.removeItem('cricket-darts-history');
+  localStorage.removeItem(STORAGE_KEYS.history);
 }
 
 // --- Player Name Memory ---
@@ -385,11 +462,11 @@ export function savePlayerNames(names: string[]): void {
       merged.add(trimmed);
     }
   }
-  localStorage.setItem('cricket-darts-players', JSON.stringify(Array.from(merged).sort()));
+  localStorage.setItem(STORAGE_KEYS.players, JSON.stringify(Array.from(merged).sort((a, b) => a.localeCompare(b))));
 }
 
 export function loadPlayerNames(): string[] {
-  const data = localStorage.getItem('cricket-darts-players');
+  const data = localStorage.getItem(STORAGE_KEYS.players);
   if (!data) return [];
   try {
     return JSON.parse(data) as string[];

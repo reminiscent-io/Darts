@@ -7,29 +7,29 @@ import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
 } from "@/components/ui/chart";
 import {
-  Game, CricketNumber, Multiplier, CRICKET_NUMBERS, DartEntry
+  CricketGame, CricketNumber, Multiplier, CRICKET_NUMBERS
 } from "@/lib/types";
 import {
-  getCurrentPlayer, getNextPlayer, recordDart, advanceTurn, undoLastDart,
-  removeDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
-  saveGame, confirmWin, getNumberValue, getPlayerStats
+  getCurrentPlayer, recordCricketDart, advanceTurn, undoLastCricketDart,
+  removeCricketDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
+  saveGame, confirmWin, getCricketPlayerStats
 } from "@/lib/game-logic";
 
-interface GameScreenProps {
-  game: Game;
-  onGameUpdate: (game: Game) => void;
-  onGameEnd: (game: Game) => void;
+interface CricketGameScreenProps {
+  game: CricketGame;
+  onGameUpdate: (game: CricketGame) => void;
+  onGameEnd: (game: CricketGame) => void;
 }
 
-export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreenProps) {
+export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: CricketGameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const lastDartTime = useRef(0);
 
-  const { player: currentPlayer, team: currentTeam, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
-  const nextPlayerInfo = getNextPlayer(game);
+  const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
+  const currentTeam = game.teams[currentTeamIndex];
   const dartsThrown = game.currentTurnDarts.length;
 
   const upcomingPlayers = useMemo(() => {
@@ -39,7 +39,7 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
       const ref = game.turnOrder[(game.currentTurnIndex + i) % orderLen];
       const team = game.teams[ref.teamIndex];
       const player = team.players.find(p => p.id === ref.playerId)!;
-      const stats = getPlayerStats(game, player.id);
+      const stats = getCricketPlayerStats(game, player.id);
       result.push({
         player,
         teamIndex: ref.teamIndex,
@@ -56,17 +56,14 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
     if (game.status === 'completed') return;
     lastDartTime.current = now;
 
-    const result = recordDart(game, target, mult);
+    const result = recordCricketDart(game, target, mult);
     setMultiplier(1);
 
     if (result.isWin) {
       setPendingWin({ teamId: currentTeam.id, teamName: currentTeam.name });
-      onGameUpdate(result.game);
-      saveGame(result.game);
-    } else {
-      onGameUpdate(result.game);
-      saveGame(result.game);
     }
+    onGameUpdate(result.game);
+    saveGame(result.game);
   }, [game, dartsThrown, currentTeam, onGameUpdate]);
 
   const handleNumberTap = (num: CricketNumber) => {
@@ -92,14 +89,14 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
       return;
     }
 
-    const result = undoLastDart(game);
+    const result = undoLastCricketDart(game);
     setPendingWin(null);
     onGameUpdate(result.game);
     saveGame(result.game);
   };
 
   const handleConfirmUndo = () => {
-    const result = undoLastDart(game);
+    const result = undoLastCricketDart(game);
     setPendingWin(null);
     setShowUndoConfirm(false);
     onGameUpdate(result.game);
@@ -107,14 +104,14 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
   };
 
   const handleRemoveDart = (index: number) => {
-    const updated = removeDartAtIndex(game, index);
+    const updated = removeCricketDartAtIndex(game, index);
     setPendingWin(null);
     onGameUpdate(updated);
     saveGame(updated);
   };
 
   const handleNextPlayer = () => {
-    const updated = advanceTurn(game);
+    const updated = advanceTurn(game) as CricketGame;
     onGameUpdate(updated);
     saveGame(updated);
     setMultiplier(1);
@@ -122,7 +119,7 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
 
   const handleConfirmWin = () => {
     if (!pendingWin) return;
-    const finalGame = confirmWin(game, pendingWin.teamId);
+    const finalGame = confirmWin(game, pendingWin.teamId) as CricketGame;
     onGameUpdate(finalGame);
     saveGame(finalGame);
     onGameEnd(finalGame);
@@ -202,7 +199,7 @@ export default function GameScreen({ game, onGameUpdate, onGameEnd }: GameScreen
           </div>
         </div>
 
-        {/* Cricket Grid - Center (flat grid so all numbers share one column) */}
+        {/* Cricket Grid - Center */}
         <div className="flex-1 border-x border-border">
           <div className="grid grid-cols-[1fr_auto_1fr]">
             {CRICKET_NUMBERS.map((num) => {

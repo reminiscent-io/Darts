@@ -1,12 +1,18 @@
 import { useState, useCallback, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
-import { AppScreen, Game } from "@/lib/types";
-import { createGame, loadGame, saveGame, clearSavedGame, saveGameToHistory, savePlayerNames } from "@/lib/game-logic";
+import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
+import {
+  createCricketGame, loadGame, saveGame, clearSavedGame,
+  saveGameToHistory, savePlayerNames, migrateStorage
+} from "@/lib/game-logic";
+import { createX01Game } from "@/lib/x01-game-logic";
 import HomeScreen from "@/pages/home-screen";
-import SetupScreen from "@/pages/setup-screen";
-import GameScreen from "@/pages/game-screen";
-import PostGameScreen from "@/pages/post-game-screen";
+import SetupScreen, { type GameSetupConfig } from "@/pages/setup-screen";
+import CricketGameScreen from "@/pages/cricket-game-screen";
+import CricketPostGameScreen from "@/pages/cricket-post-game-screen";
+import X01GameScreen from "@/pages/x01-game-screen";
+import X01PostGameScreen from "@/pages/x01-post-game-screen";
 import HistoryScreen from "@/pages/history-screen";
 
 function App() {
@@ -15,6 +21,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
+    migrateStorage();
   }, []);
 
   const handleNewGame = useCallback(() => {
@@ -23,20 +30,45 @@ function App() {
 
   const handleResumeGame = useCallback(() => {
     const saved = loadGame();
-    if (saved && saved.status === 'in_progress') {
+    if (saved?.status === 'in_progress') {
       setGame(saved);
       setScreen('game');
     }
   }, []);
 
-  const handleStartGame = useCallback((
-    team1Name: string,
-    team1Players: string[],
-    team2Name: string,
-    team2Players: string[],
-    firstTeamIndex: number
-  ) => {
-    const newGame = createGame(team1Name, team1Players, team2Name, team2Players, firstTeamIndex);
+  const handleStartGame = useCallback((config: GameSetupConfig) => {
+    let newGame: Game;
+
+    if (config.gameType === 'cricket') {
+      newGame = createCricketGame(
+        config.team1Name,
+        config.team1Players,
+        config.team2Name,
+        config.team2Players,
+        config.firstTeamIndex
+      );
+    } else {
+      if (config.x01Mode === 'individual') {
+        newGame = createX01Game({
+          startingScore: config.startingScore,
+          doubleOut: config.doubleOut,
+          mode: 'individual',
+          playerNames: config.individualPlayers,
+        });
+      } else {
+        newGame = createX01Game({
+          startingScore: config.startingScore,
+          doubleOut: config.doubleOut,
+          mode: 'team',
+          team1Name: config.team1Name,
+          team1Players: config.team1Players,
+          team2Name: config.team2Name,
+          team2Players: config.team2Players,
+          firstTeamIndex: config.firstTeamIndex,
+        });
+      }
+    }
+
     setGame(newGame);
     saveGame(newGame);
     setScreen('game');
@@ -56,13 +88,40 @@ function App() {
 
   const handleRematch = useCallback(() => {
     if (!game) return;
-    const newGame = createGame(
-      game.teams[0].name,
-      game.teams[0].players.map(p => p.name),
-      game.teams[1].name,
-      game.teams[1].players.map(p => p.name),
-      0
-    );
+
+    let newGame: Game;
+    if (game.gameType === 'cricket') {
+      const cg = game as CricketGame;
+      newGame = createCricketGame(
+        cg.teams[0].name,
+        cg.teams[0].players.map(p => p.name),
+        cg.teams[1].name,
+        cg.teams[1].players.map(p => p.name),
+        0
+      );
+    } else {
+      const xg = game as X01Game;
+      if (xg.mode === 'individual') {
+        newGame = createX01Game({
+          startingScore: xg.startingScore,
+          doubleOut: xg.doubleOut,
+          mode: 'individual',
+          playerNames: xg.teams.map(t => t.players[0]?.name || t.name),
+        });
+      } else {
+        newGame = createX01Game({
+          startingScore: xg.startingScore,
+          doubleOut: xg.doubleOut,
+          mode: 'team',
+          team1Name: xg.teams[0].name,
+          team1Players: xg.teams[0].players.map(p => p.name),
+          team2Name: xg.teams[1].name,
+          team2Players: xg.teams[1].players.map(p => p.name),
+          firstTeamIndex: 0,
+        });
+      }
+    }
+
     setGame(newGame);
     saveGame(newGame);
     setScreen('game');
@@ -81,6 +140,48 @@ function App() {
   const handleBackToHome = useCallback(() => {
     setScreen('home');
   }, []);
+
+  const renderGameScreen = () => {
+    if (!game) return null;
+    if (game.gameType === 'cricket') {
+      return (
+        <CricketGameScreen
+          game={game as CricketGame}
+          onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
+          onGameEnd={handleGameEnd as (g: CricketGame) => void}
+        />
+      );
+    }
+    return (
+      <X01GameScreen
+        game={game as X01Game}
+        onGameUpdate={handleGameUpdate as (g: X01Game) => void}
+        onGameEnd={handleGameEnd as (g: X01Game) => void}
+      />
+    );
+  };
+
+  const renderPostGameScreen = () => {
+    if (!game) return null;
+    if (game.gameType === 'cricket') {
+      return (
+        <CricketPostGameScreen
+          game={game as CricketGame}
+          onRematch={handleRematch}
+          onNewGame={handleNewGame}
+          onHome={handleHome}
+        />
+      );
+    }
+    return (
+      <X01PostGameScreen
+        game={game as X01Game}
+        onRematch={handleRematch}
+        onNewGame={handleNewGame}
+        onHome={handleHome}
+      />
+    );
+  };
 
   return (
     <div className="h-full w-full max-w-lg mx-auto relative bg-background">
@@ -120,7 +221,7 @@ function App() {
             transition={{ duration: 0.15 }}
             className="h-full"
           >
-            <GameScreen game={game} onGameUpdate={handleGameUpdate} onGameEnd={handleGameEnd} />
+            {renderGameScreen()}
           </motion.div>
         )}
 
@@ -133,14 +234,10 @@ function App() {
             transition={{ duration: 0.3 }}
             className="h-full"
           >
-            <PostGameScreen
-              game={game}
-              onRematch={handleRematch}
-              onNewGame={handleNewGame}
-              onHome={handleHome}
-            />
+            {renderPostGameScreen()}
           </motion.div>
         )}
+
         {screen === 'history' && (
           <motion.div
             key="history"

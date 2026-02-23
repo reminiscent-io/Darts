@@ -26,6 +26,19 @@ function formatTime(iso: string): string {
   });
 }
 
+function getGameTypeLabel(summary: GameSummary): string {
+  if (summary.gameType === 'x01' && summary.startingScore) {
+    return String(summary.startingScore);
+  }
+  if (summary.gameType === 'x01') return 'X01';
+  return 'Cricket';
+}
+
+function getGameTypeBadgeColor(summary: GameSummary): string {
+  if (summary.gameType === 'x01') return 'bg-chart-2/20 text-chart-2';
+  return 'bg-primary/20 text-primary';
+}
+
 export default function HistoryScreen({ onBack }: HistoryScreenProps) {
   const [history, setHistory] = useState<GameSummary[]>(() => loadGameHistory());
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -72,6 +85,9 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
           <div className="px-4 py-3 space-y-2">
             {history.map((game, i) => {
               const isExpanded = expandedId === game.id;
+              const winnerTeam = game.teams.find(t => t.isWinner);
+              const teamCount = game.teams.length;
+
               return (
                 <motion.div
                   key={game.id}
@@ -85,18 +101,30 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
                     onClick={() => setExpandedId(isExpanded ? null : game.id)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* Game type badge */}
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-sm tracking-wider shrink-0 ${getGameTypeBadgeColor(game)}`}>
+                          {getGameTypeLabel(game)}
+                        </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 text-sm font-medium">
-                            <span className={game.winnerTeamIndex === 0 ? "text-primary" : "text-foreground"}>
-                              {game.team1Name}
-                            </span>
-                            <span className="text-muted-foreground font-mono text-xs">
-                              {game.team1Score} - {game.team2Score}
-                            </span>
-                            <span className={game.winnerTeamIndex === 1 ? "text-primary" : "text-foreground"}>
-                              {game.team2Name}
-                            </span>
+                            {teamCount === 2 ? (
+                              <>
+                                <span className={game.teams[0].isWinner ? "text-primary" : "text-foreground"}>
+                                  {game.teams[0].name}
+                                </span>
+                                <span className="text-muted-foreground font-mono text-xs">
+                                  {game.teams[0].score} - {game.teams[1].score}
+                                </span>
+                                <span className={game.teams[1].isWinner ? "text-primary" : "text-foreground"}>
+                                  {game.teams[1].name}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-foreground truncate">
+                                {game.teams.map(t => t.name).join(', ')}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs text-muted-foreground/60">
@@ -110,7 +138,9 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <Trophy className="w-3.5 h-3.5 text-primary" />
-                        <span className="text-xs font-medium text-primary">{game.winnerName}</span>
+                        <span className="text-xs font-medium text-primary">
+                          {winnerTeam?.name || ''}
+                        </span>
                         {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-muted-foreground" />
                         ) : (
@@ -130,19 +160,22 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
                         className="overflow-hidden"
                       >
                         <div className="px-3 py-2 bg-muted/10 rounded-b-md border-t border-border/50 space-y-2">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <div className="text-xs font-medium text-primary mb-1">{game.team1Name}</div>
-                              {game.team1Players.map((p, idx) => (
-                                <div key={idx} className="text-xs text-muted-foreground">{p}</div>
-                              ))}
-                            </div>
-                            <div>
-                              <div className="text-xs font-medium text-chart-2 mb-1">{game.team2Name}</div>
-                              {game.team2Players.map((p, idx) => (
-                                <div key={idx} className="text-xs text-muted-foreground">{p}</div>
-                              ))}
-                            </div>
+                          <div className={`grid gap-3`}
+                            style={{ gridTemplateColumns: `repeat(${Math.min(teamCount, 4)}, minmax(0, 1fr))` }}
+                          >
+                            {game.teams.map((team, idx) => (
+                              <div key={idx}>
+                                <div className={`text-xs font-medium mb-1 ${
+                                  team.isWinner ? 'text-primary' : idx === 0 ? 'text-primary' : 'text-chart-2'
+                                }`}>
+                                  {team.name}
+                                  {team.isWinner && ' \u2713'}
+                                </div>
+                                {team.players.map((p, pIdx) => (
+                                  <div key={pIdx} className="text-xs text-muted-foreground">{p}</div>
+                                ))}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </motion.div>
