@@ -26,10 +26,10 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
           <Target className="w-8 h-8 text-primary" />
         </div>
         <h1 className="text-3xl font-bold tracking-tight font-mono text-foreground">
-          CRICKET
+          DARTS
         </h1>
         <p className="text-muted-foreground text-sm tracking-widest uppercase">
-          Darts Scorekeeper
+          Scorekeeper
         </p>
       </motion.div>
 
@@ -63,7 +63,9 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
               onClick={onResumeGame}
             >
               <RotateCcw className="w-4 h-4" />
-              Resume Game
+              Resume {savedGame?.gameType === 'x01'
+                ? `${(savedGame as { startingScore: number }).startingScore}`
+                : 'Cricket'} Game
             </Button>
           </motion.div>
         )}
@@ -94,7 +96,7 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
         transition={{ duration: 0.4, delay: 0.5 }}
         className="mt-12 text-xs text-muted-foreground/60 tracking-wide"
       >
-        Track your Cricket darts game
+        Cricket & X01 darts scoring
       </motion.p>
     </div>
   );

@@ -1,26 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Trophy, RotateCcw, Home } from "lucide-react";
-import { Game, CRICKET_NUMBERS } from "@/lib/types";
-import { getPlayerStats, isNumberClosedByTeam } from "@/lib/game-logic";
+import { CricketGame, CRICKET_NUMBERS } from "@/lib/types";
+import { getCricketPlayerStats, isNumberClosedByTeam } from "@/lib/game-logic";
 
-interface PostGameScreenProps {
-  game: Game;
+interface CricketPostGameScreenProps {
+  game: CricketGame;
   onRematch: () => void;
   onNewGame: () => void;
   onHome: () => void;
 }
 
-export default function PostGameScreen({ game, onRematch, onNewGame, onHome }: PostGameScreenProps) {
+export default function CricketPostGameScreen({ game, onRematch, onNewGame, onHome }: CricketPostGameScreenProps) {
   const winnerTeam = game.teams.find(t => t.id === game.winnerId);
-  const loserTeam = game.teams.find(t => t.id !== game.winnerId);
 
   const allPlayers = game.teams.flatMap(t =>
     t.players.map(p => ({
       ...p,
       teamName: t.name,
       teamId: t.id,
-      stats: getPlayerStats(game, p.id),
+      stats: getCricketPlayerStats(game, p.id),
     }))
   );
 
