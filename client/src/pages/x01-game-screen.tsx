@@ -171,19 +171,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
       });
     }
 
-    // Add current turn darts
-    for (let i = 0; i < game.currentTurnDarts.length; i++) {
-      const dart = game.currentTurnDarts[i];
-      if (!dart.isBust && dart.pointsScored > 0) {
-        remaining[dart.teamId] = Math.max(0, (remaining[dart.teamId] || game.startingScore) - dart.pointsScored);
-        hasAny = true;
-      }
-      data.push({
-        dart: allDarts.length + i + 1,
-        ...Object.fromEntries(teamIds.map(id => [id, remaining[id]]))
-      });
-    }
-
     // Dynamic Y-axis domain: zoom into the actual score range
     const minRemaining = Math.min(...teamIds.map(id => remaining[id]));
     const scoreRange = game.startingScore - minRemaining;
