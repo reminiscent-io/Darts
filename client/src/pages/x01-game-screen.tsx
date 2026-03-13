@@ -148,7 +148,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
   const teamBgColors = ['bg-primary', 'bg-chart-2', 'bg-emerald-400', 'bg-purple-400', 'bg-orange-400', 'bg-pink-400', 'bg-cyan-400', 'bg-yellow-400'];
 
   // Chart data
-  const { chartData, chartConfig, hasActivity } = useMemo(() => {
+  const { chartData, chartConfig, hasActivity, chartDomain } = useMemo(() => {
     const allDarts = game.dartHistory;
     const teamIds = game.teams.map(t => t.id);
     const remaining: Record<string, number> = {};
@@ -184,6 +184,17 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
       });
     }
 
+    // Dynamic Y-axis domain: zoom into the actual score range
+    const minRemaining = Math.min(...teamIds.map(id => remaining[id]));
+    const scoreRange = game.startingScore - minRemaining;
+    // Add 20% padding below the lowest score, with a minimum of 10% of starting score
+    const padding = Math.max(scoreRange * 0.2, game.startingScore * 0.1);
+    const domainMin = Math.max(0, minRemaining - padding);
+    // Use full [0, startingScore] once scores have dropped past halfway
+    const domain: [number, number] = minRemaining <= game.startingScore * 0.5
+      ? [0, game.startingScore]
+      : [domainMin, game.startingScore];
+
     const config: ChartConfig = {};
     const hues = [38, 195, 150, 280, 25, 330, 185, 55];
     game.teams.forEach((t, idx) => {
@@ -193,7 +204,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
       };
     });
 
-    return { chartData: data, chartConfig: config, hasActivity: hasAny };
+    return { chartData: data, chartConfig: config, hasActivity: hasAny, chartDomain: domain };
   }, [game.dartHistory, game.currentTurnDarts, game.teams, game.startingScore, isIndividual]);
 
   return (
@@ -312,7 +323,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
             <ChartContainer config={chartConfig} className="h-full w-full !aspect-auto">
               <LineChart data={chartData}>
                 <XAxis dataKey="dart" hide />
-                <YAxis hide domain={[0, game.startingScore]} />
+                <YAxis hide domain={chartDomain} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 {game.teams.map((team) => (
                   <Line

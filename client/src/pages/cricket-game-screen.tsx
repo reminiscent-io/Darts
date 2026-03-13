@@ -138,7 +138,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
 
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
 
-  const { chartData, chartConfig, allPlayers, hasPoints } = useMemo(() => {
+  const { chartData, chartConfig, allPlayers, hasPoints, chartYMax } = useMemo(() => {
     const allDarts = [...game.dartHistory, ...game.currentTurnDarts];
     const players = game.teams.flatMap((team, teamIdx) =>
       team.players.map((p, playerIdx) => ({
@@ -170,6 +170,10 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
       });
     }
 
+    // Ensure a reasonable minimum Y-axis range so early small scores don't spike to fill the chart
+    const maxScore = Math.max(...Object.values(cumulative));
+    const yMax = Math.max(maxScore, 50);
+
     const config: ChartConfig = {};
     players.forEach(p => {
       const lightness = p.teamIdx === 0 ? 55 + p.playerIdx * 12 : 50 + p.playerIdx * 12;
@@ -179,7 +183,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
       config[p.id] = { label: p.name, color };
     });
 
-    return { chartData: data, chartConfig: config, allPlayers: players, hasPoints: scored };
+    return { chartData: data, chartConfig: config, allPlayers: players, hasPoints: scored, chartYMax: yMax };
   }, [game.dartHistory, game.currentTurnDarts, game.teams]);
 
   return (
@@ -321,7 +325,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
             <ChartContainer config={chartConfig} className="h-full w-full !aspect-auto">
               <AreaChart data={chartData}>
                 <XAxis dataKey="dart" hide />
-                <YAxis hide />
+                <YAxis hide domain={[0, chartYMax]} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 {allPlayers.map((player) => (
                   <Area
