@@ -28,6 +28,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const lastDartTime = useRef(0);
+  const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const currentTeam = game.teams[currentTeamIndex];
@@ -68,14 +69,20 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
   }, [game, dartsThrown, currentTeam, onGameUpdate]);
 
   const handleNumberTap = (num: CricketNumber) => {
+    setTappedNumber(String(num));
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry(num, multiplier);
   };
 
   const handleBull = (double: boolean) => {
+    setTappedNumber(double ? 'DB' : 'SB');
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry('B', double ? 2 : 1);
   };
 
   const handleMiss = () => {
+    setTappedNumber('miss');
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry('miss', 1);
   };
 
@@ -208,8 +215,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
       </div>
 
       <div className="flex border-b border-border flex-shrink-0">
-        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
-          currentTeamIndex === 0 ? 'bg-muted/30' : ''
+        {/* Team 1 Points - Left */}
+        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
+          currentTeamIndex === 0 ? 'bg-primary/15 ring-2 ring-inset ring-primary/50' : ''
         }`}>
           <div className="text-xs font-medium tracking-wider uppercase truncate text-primary"
             data-testid="text-team1-name"
@@ -258,8 +266,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
           </div>
         </div>
 
-        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 ${
-          currentTeamIndex === 1 ? 'bg-muted/30' : ''
+        {/* Team 2 Points - Right */}
+        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
+          currentTeamIndex === 1 ? 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50' : ''
         }`}>
           <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2"
             data-testid="text-team2-name"
@@ -272,9 +281,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-b border-border/50">
+      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 border-l-4 transition-colors duration-300 ${
+        currentTeamIndex === 0 ? 'bg-primary/10 border-l-primary' : 'bg-chart-2/10 border-l-chart-2'
+      }`}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className={`w-2 h-2 rounded-full shrink-0 ${
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
             currentTeamIndex === 0 ? 'bg-primary' : 'bg-chart-2'
           }`} />
           <span className="text-sm font-medium truncate" data-testid="text-current-player">
@@ -309,8 +320,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
         ))}
       </div>
 
-      <div className="min-h-[36px] flex items-center gap-1.5 px-3 py-1 border-b border-border bg-muted/10 overflow-x-auto" data-testid="dart-tray">
-        <span className="text-xs text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
+      <div className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/10 overflow-x-auto" data-testid="dart-tray">
+        <span className="text-sm text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
         <AnimatePresence mode="popLayout">
           {game.currentTurnDarts.map((dart, idx) => (
             <motion.button
@@ -320,16 +331,16 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
               onClick={() => handleRemoveDart(idx)}
-              className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 text-xs font-mono font-medium text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
+              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
               data-testid={`button-dart-chip-${idx}`}
             >
               {formatDart(dart)}
-              <X className="w-3 h-3 text-muted-foreground" />
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
             </motion.button>
           ))}
         </AnimatePresence>
         {dartsThrown === 0 && (
-          <span className="text-xs text-muted-foreground/30 italic">no darts thrown</span>
+          <span className="text-sm text-muted-foreground/30 italic">no darts thrown</span>
         )}
       </div>
 
@@ -373,7 +384,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
             data-testid="button-miss"
             variant="secondary"
             size="sm"
-            className="flex-1 text-muted-foreground text-xs"
+            className={`flex-1 text-muted-foreground text-xs transition-all duration-150 ${
+              tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={handleMiss}
           >
@@ -383,7 +396,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
             data-testid="button-single-bull"
             variant="secondary"
             size="sm"
-            className="flex-1 text-xs"
+            className={`flex-1 text-xs transition-all duration-150 ${
+              tappedNumber === 'SB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={() => handleBull(false)}
           >
@@ -393,7 +408,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
             data-testid="button-double-bull"
             variant="secondary"
             size="sm"
-            className="flex-1 text-xs"
+            className={`flex-1 text-xs transition-all duration-150 ${
+              tappedNumber === 'DB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={() => handleBull(true)}
           >
@@ -407,7 +424,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
               key={num}
               data-testid={`button-number-${num}`}
               variant="secondary"
-              className="font-mono text-base font-bold py-3"
+              className={`font-mono text-base font-bold py-3 transition-all duration-150 ${
+                tappedNumber === String(num) ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+              }`}
               disabled={isInputDisabled || dartsThrown >= 3}
               onClick={() => handleNumberTap(num)}
             >

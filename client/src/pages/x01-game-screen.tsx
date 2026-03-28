@@ -28,6 +28,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [bustFlash, setBustFlash] = useState(false);
   const lastDartTime = useRef(0);
+  const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const currentTeam = game.teams[currentTeamIndex];
@@ -78,14 +79,20 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
   }, [game, dartsThrown, currentTeam, onGameUpdate]);
 
   const handleNumberTap = (num: number) => {
+    setTappedNumber(String(num));
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry(num, multiplier);
   };
 
   const handleBull = (double: boolean) => {
+    setTappedNumber(double ? 'DB' : 'SB');
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry('B', double ? 2 : 1);
   };
 
   const handleMiss = () => {
+    setTappedNumber('miss');
+    setTimeout(() => setTappedNumber(null), 200);
     handleDartEntry('miss', 1);
   };
 
@@ -146,6 +153,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
   // Team colors for multi-team/player support
   const teamColors = ['text-primary', 'text-chart-2', 'text-emerald-400', 'text-purple-400', 'text-orange-400', 'text-pink-400', 'text-cyan-400', 'text-yellow-400'];
   const teamBgColors = ['bg-primary', 'bg-chart-2', 'bg-emerald-400', 'bg-purple-400', 'bg-orange-400', 'bg-pink-400', 'bg-cyan-400', 'bg-yellow-400'];
+  const teamHighlightColors = ['bg-primary/15 ring-2 ring-inset ring-primary/50', 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50', 'bg-emerald-400/15 ring-2 ring-inset ring-emerald-400/50', 'bg-purple-400/15 ring-2 ring-inset ring-purple-400/50', 'bg-orange-400/15 ring-2 ring-inset ring-orange-400/50', 'bg-pink-400/15 ring-2 ring-inset ring-pink-400/50', 'bg-cyan-400/15 ring-2 ring-inset ring-cyan-400/50', 'bg-yellow-400/15 ring-2 ring-inset ring-yellow-400/50'];
+  const teamActiveTurnStyles = ['border-l-primary bg-primary/10', 'border-l-chart-2 bg-chart-2/10', 'border-l-emerald-400 bg-emerald-400/10', 'border-l-purple-400 bg-purple-400/10', 'border-l-orange-400 bg-orange-400/10', 'border-l-pink-400 bg-pink-400/10', 'border-l-cyan-400 bg-cyan-400/10', 'border-l-yellow-400 bg-yellow-400/10'];
 
   // Chart data
   const { chartData, chartConfig, hasActivity, chartDomain } = useMemo(() => {
@@ -202,8 +211,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
           {game.teams.map((team, idx) => (
             <div
               key={team.id}
-              className={`flex flex-col items-center px-3 py-1 rounded-md min-w-[64px] shrink-0 ${
-                currentTeamIndex === idx ? 'bg-muted/40' : ''
+              className={`flex flex-col items-center px-3 py-1 rounded-md min-w-[64px] shrink-0 transition-all duration-300 ${
+                currentTeamIndex === idx ? teamHighlightColors[idx % teamHighlightColors.length] : ''
               }`}
             >
               <div className={`text-[10px] font-medium tracking-wider uppercase truncate ${teamColors[idx % teamColors.length]}`}>
@@ -217,8 +226,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
         </div>
       ) : (
         <div className="flex border-b border-border flex-shrink-0">
-          <div className={`flex-1 flex flex-col items-center justify-center py-2 ${
-            currentTeamIndex === 0 ? 'bg-muted/30' : ''
+          <div className={`flex-1 flex flex-col items-center justify-center py-2 transition-all duration-300 ${
+            currentTeamIndex === 0 ? 'bg-primary/15 ring-2 ring-inset ring-primary/50' : ''
           }`}>
             <div className="text-xs font-medium tracking-wider uppercase truncate text-primary">
               {game.teams[0].name}
@@ -228,8 +237,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
             </div>
           </div>
           <div className="w-px bg-border" />
-          <div className={`flex-1 flex flex-col items-center justify-center py-2 ${
-            currentTeamIndex === 1 ? 'bg-muted/30' : ''
+          <div className={`flex-1 flex flex-col items-center justify-center py-2 transition-all duration-300 ${
+            currentTeamIndex === 1 ? 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50' : ''
           }`}>
             <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2">
               {game.teams[1].name}
@@ -242,9 +251,11 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
       )}
 
       {/* Current player + dart counter */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/20 border-b border-border/50">
+      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 border-l-4 transition-colors duration-300 ${
+        teamActiveTurnStyles[currentTeamIndex % teamActiveTurnStyles.length]
+      }`}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className={`w-2 h-2 rounded-full shrink-0 ${teamBgColors[currentTeamIndex % teamBgColors.length]}`} />
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${teamBgColors[currentTeamIndex % teamBgColors.length]}`} />
           <span className="text-sm font-medium truncate" data-testid="text-current-player">
             {currentPlayer.name}
           </span>
@@ -280,8 +291,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
       </div>
 
       {/* Dart tray */}
-      <div className="min-h-[36px] flex items-center gap-1.5 px-3 py-1 border-b border-border bg-muted/10 overflow-x-auto">
-        <span className="text-xs text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
+      <div className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/10 overflow-x-auto">
+        <span className="text-sm text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
         <AnimatePresence mode="popLayout">
           {game.currentTurnDarts.map((dart, idx) => (
             <motion.button
@@ -291,15 +302,15 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
               onClick={() => handleRemoveDart(idx)}
-              className="flex items-center gap-1 bg-secondary rounded-md px-2 py-1 text-xs font-mono font-medium text-secondary-foreground shrink-0"
+              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 text-sm font-mono font-semibold text-secondary-foreground shrink-0"
             >
               {formatDart(dart)}
-              <X className="w-3 h-3 text-muted-foreground" />
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
             </motion.button>
           ))}
         </AnimatePresence>
         {dartsThrown === 0 && (
-          <span className="text-xs text-muted-foreground/30 italic">no darts thrown</span>
+          <span className="text-sm text-muted-foreground/30 italic">no darts thrown</span>
         )}
       </div>
 
@@ -346,7 +357,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 text-muted-foreground text-xs"
+            className={`flex-1 text-muted-foreground text-xs transition-all duration-150 ${
+              tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={handleMiss}
           >
@@ -355,7 +368,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 text-xs"
+            className={`flex-1 text-xs transition-all duration-150 ${
+              tappedNumber === 'SB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={() => handleBull(false)}
           >
@@ -364,7 +379,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 text-xs"
+            className={`flex-1 text-xs transition-all duration-150 ${
+              tappedNumber === 'DB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+            }`}
             disabled={isInputDisabled || dartsThrown >= 3}
             onClick={() => handleBull(true)}
           >
@@ -379,7 +396,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
               key={num}
               variant="secondary"
               size="sm"
-              className="font-mono text-sm font-bold py-2.5"
+              className={`font-mono text-sm font-bold py-2.5 transition-all duration-150 ${
+                tappedNumber === String(num) ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
+              }`}
               disabled={isInputDisabled || dartsThrown >= 3}
               onClick={() => handleNumberTap(num)}
             >
