@@ -430,6 +430,18 @@ export async function loadGameFromDb(): Promise<Game | null> {
   }
 }
 
+export async function loadGameById(gameId: string): Promise<Game | null> {
+  try {
+    const res = await fetch(`/api/games/${gameId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data) return null;
+    return data as Game;
+  } catch {
+    return null;
+  }
+}
+
 export function clearSavedGame(): void {
   const game = loadGame();
   localStorage.removeItem(STORAGE_KEYS.game);

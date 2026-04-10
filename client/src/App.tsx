@@ -1,12 +1,14 @@
 import { useState, useCallback, useEffect } from "react";
+import { Router, Route, useParams, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
 import {
   createCricketGame, loadGame, loadGameFromDb, saveGame, clearSavedGame,
-  saveGameToHistory, savePlayerNames, migrateStorage
+  saveGameToHistory, savePlayerNames, migrateStorage, loadGameById
 } from "@/lib/game-logic";
 import { createX01Game } from "@/lib/x01-game-logic";
+import { useGameSync } from "@/hooks/use-game-sync";
 import HomeScreen from "@/pages/home-screen";
 import SetupScreen, { type GameSetupConfig } from "@/pages/setup-screen";
 import CricketGameScreen from "@/pages/cricket-game-screen";
@@ -16,10 +18,18 @@ import X01PostGameScreen from "@/pages/x01-post-game-screen";
 import HistoryScreen from "@/pages/history-screen";
 import AccessScreen, { isAccessGranted } from "@/pages/access-screen";
 
-function App() {
+function MainApp() {
   const [authenticated, setAuthenticated] = useState(() => isAccessGranted());
   const [screen, setScreen] = useState<AppScreen>('home');
   const [game, setGame] = useState<Game | null>(null);
+
+  // Real-time sync: active whenever there's a game in progress
+  const gameId = game?.status === 'in_progress' ? game.id : null;
+  const { isConnected, playerCount, sendUpdate } = useGameSync(gameId, (remoteGame) => {
+    setGame(remoteGame);
+    // Keep localStorage fresh with remote updates
+    saveGame(remoteGame);
+  });
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -81,15 +91,17 @@ function App() {
 
   const handleGameUpdate = useCallback((updatedGame: Game) => {
     setGame(updatedGame);
-  }, []);
+    sendUpdate(updatedGame);
+  }, [sendUpdate]);
 
   const handleGameEnd = useCallback((finalGame: Game) => {
     setGame(finalGame);
     saveGameToHistory(finalGame);
+    sendUpdate(finalGame);
     const allNames = finalGame.teams.flatMap(t => t.players.map(p => p.name));
     savePlayerNames(allNames);
     setScreen('post-game');
-  }, []);
+  }, [sendUpdate]);
 
   const handleRematch = useCallback(() => {
     if (!game) return;
@@ -163,6 +175,8 @@ function App() {
           game={game as CricketGame}
           onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
           onGameEnd={handleGameEnd as (g: CricketGame) => void}
+          playerCount={playerCount}
+          isConnected={isConnected}
         />
       );
     }
@@ -171,6 +185,8 @@ function App() {
         game={game as X01Game}
         onGameUpdate={handleGameUpdate as (g: X01Game) => void}
         onGameEnd={handleGameEnd as (g: X01Game) => void}
+        playerCount={playerCount}
+        isConnected={isConnected}
       />
     );
   };
@@ -267,6 +283,118 @@ function App() {
       </AnimatePresence>
       <Toaster />
     </div>
+  );
+}
+
+function SharedGameView() {
+  const params = useParams<{ gameId: string }>();
+  const gameId = params.gameId;
+  const [, setLocation] = useLocation();
+  const [game, setGame] = useState<Game | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { isConnected, playerCount, sendUpdate } = useGameSync(gameId ?? null, (remoteGame) => {
+    setGame(remoteGame);
+    setLoading(false);
+    setError(null);
+  });
+
+  // Load game initially via HTTP (WebSocket join will also send state, whichever arrives first wins)
+  useEffect(() => {
+    if (!gameId) return;
+    loadGameById(gameId).then((loaded) => {
+      if (loaded) {
+        setGame(loaded);
+        setLoading(false);
+      } else if (!game) {
+        // Only show error if we haven't received state from WebSocket either
+        setTimeout(() => {
+          setLoading((l) => {
+            if (l) setError("Game not found");
+            return false;
+          });
+        }, 2000);
+      }
+    });
+  }, [gameId]);
+
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+
+  const handleGameUpdate = useCallback((updatedGame: Game) => {
+    setGame(updatedGame);
+    saveGame(updatedGame);
+    sendUpdate(updatedGame);
+  }, [sendUpdate]);
+
+  const handleGameEnd = useCallback((finalGame: Game) => {
+    setGame(finalGame);
+    saveGame(finalGame);
+    saveGameToHistory(finalGame);
+    sendUpdate(finalGame);
+  }, [sendUpdate]);
+
+  if (loading) {
+    return (
+      <div className="h-full w-full max-w-lg mx-auto relative bg-background flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !game) {
+    return (
+      <div className="h-full w-full max-w-lg mx-auto relative bg-background flex items-center justify-center">
+        <div className="text-center space-y-3 px-6">
+          <p className="text-lg font-semibold text-foreground">Game not found</p>
+          <p className="text-sm text-muted-foreground">This game may have ended or the link may be invalid.</p>
+          <button
+            onClick={() => setLocation("/")}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium"
+          >
+            Go Home
+          </button>
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full max-w-lg mx-auto relative bg-background">
+      {game.gameType === 'cricket' ? (
+        <CricketGameScreen
+          game={game as CricketGame}
+          onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
+          onGameEnd={handleGameEnd as (g: CricketGame) => void}
+          playerCount={playerCount}
+          isConnected={isConnected}
+        />
+      ) : (
+        <X01GameScreen
+          game={game as X01Game}
+          onGameUpdate={handleGameUpdate as (g: X01Game) => void}
+          onGameEnd={handleGameEnd as (g: X01Game) => void}
+          playerCount={playerCount}
+          isConnected={isConnected}
+        />
+      )}
+      <Toaster />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Route path="/" component={MainApp} />
+      <Route path="/game/:gameId" component={SharedGameView} />
+    </Router>
   );
 }
 

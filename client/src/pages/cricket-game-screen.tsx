@@ -14,14 +14,17 @@ import {
   removeCricketDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
   saveGame, clearSavedGame, confirmWin, getCricketPlayerStats
 } from "@/lib/game-logic";
+import ShareButton from "@/components/share-button";
 
 interface CricketGameScreenProps {
   game: CricketGame;
   onGameUpdate: (game: CricketGame) => void;
   onGameEnd: (game: CricketGame) => void;
+  playerCount?: number;
+  isConnected?: boolean;
 }
 
-export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: CricketGameScreenProps) {
+export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
@@ -211,7 +214,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd }: Cri
           <Home className="w-4 h-4" />
         </Button>
         <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">Cricket</span>
-        <div className="w-8" />
+        <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
       </div>
 
       <div className="flex border-b border-border flex-shrink-0">
