@@ -11,15 +11,16 @@ interface HomeScreenProps {
 }
 
 export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: HomeScreenProps) {
-  const [canResume, setCanResume] = useState(() => {
+  const [savedGame, setSavedGame] = useState<ReturnType<typeof loadGame>>(() => {
     const saved = loadGame();
-    return !!(saved && saved.status === 'in_progress');
+    return saved && saved.status === 'in_progress' ? saved : null;
   });
+  const canResume = !!savedGame;
   const [hasHistory, setHasHistory] = useState(() => loadGameHistory().length > 0);
 
   useEffect(() => {
     loadGameFromDb().then((g) => {
-      if (g && g.status === 'in_progress') setCanResume(true);
+      if (g && g.status === 'in_progress') setSavedGame(g);
     });
     loadGameHistoryFromDb().then((h) => {
       if (h.length > 0) setHasHistory(true);

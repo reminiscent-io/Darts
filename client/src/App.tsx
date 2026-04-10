@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef, Component, type ReactNode, type ErrorInfo } from "react";
 import { Router, Route, useParams, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
@@ -294,7 +294,10 @@ function SharedGameView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const gameLoaded = useRef(false);
+
   const { isConnected, playerCount, sendUpdate } = useGameSync(gameId ?? null, (remoteGame) => {
+    gameLoaded.current = true;
     setGame(remoteGame);
     setLoading(false);
     setError(null);
@@ -303,20 +306,23 @@ function SharedGameView() {
   // Load game initially via HTTP (WebSocket join will also send state, whichever arrives first wins)
   useEffect(() => {
     if (!gameId) return;
+    let timeoutId: ReturnType<typeof setTimeout>;
     loadGameById(gameId).then((loaded) => {
       if (loaded) {
+        gameLoaded.current = true;
         setGame(loaded);
         setLoading(false);
-      } else if (!game) {
+      } else if (!gameLoaded.current) {
         // Only show error if we haven't received state from WebSocket either
-        setTimeout(() => {
-          setLoading((l) => {
-            if (l) setError("Game not found");
-            return false;
-          });
+        timeoutId = setTimeout(() => {
+          if (!gameLoaded.current) {
+            setError("Game not found");
+            setLoading(false);
+          }
         }, 2000);
       }
     });
+    return () => clearTimeout(timeoutId);
   }, [gameId]);
 
   useEffect(() => {
@@ -389,12 +395,52 @@ function SharedGameView() {
   );
 }
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("App error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full w-full max-w-lg mx-auto flex items-center justify-center bg-background">
+          <div className="text-center space-y-4 px-6">
+            <p className="text-lg font-semibold text-foreground">Something went wrong</p>
+            <p className="text-sm text-muted-foreground">An unexpected error occurred.</p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false });
+                window.location.reload();
+              }}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   return (
-    <Router>
-      <Route path="/" component={MainApp} />
-      <Route path="/game/:gameId" component={SharedGameView} />
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <Route path="/" component={MainApp} />
+        <Route path="/game/:gameId" component={SharedGameView} />
+      </Router>
+    </ErrorBoundary>
   );
 }
 
