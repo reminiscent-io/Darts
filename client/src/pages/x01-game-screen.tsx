@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Undo2, ChevronRight, X, AlertTriangle } from "lucide-react";
+import { Undo2, ChevronRight, X, AlertTriangle, Home } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
@@ -14,14 +14,17 @@ import {
   recordX01Dart, undoLastX01Dart, removeX01DartAtIndex,
   getX01PlayerStats, getCurrentTurnTotal
 } from "@/lib/x01-game-logic";
+import ShareButton from "@/components/share-button";
 
 interface X01GameScreenProps {
   game: X01Game;
   onGameUpdate: (game: X01Game) => void;
   onGameEnd: (game: X01Game) => void;
+  playerCount?: number;
+  isConnected?: boolean;
 }
 
-export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01GameScreenProps) {
+export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: X01GameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
@@ -205,6 +208,12 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd }: X01Game
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
+      {/* Nav Header */}
+      <div className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
+        <div className="w-8" />
+        <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">X01</span>
+        <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
+      </div>
       {/* Score Header */}
       {isIndividual ? (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border overflow-x-auto flex-shrink-0">

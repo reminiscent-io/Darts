@@ -22,6 +22,12 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
+  app.get("/api/games/:id", async (req, res) => {
+    const game = await storage.getGame(req.params.id);
+    if (!game) return res.status(404).json({ message: "Game not found" });
+    res.json(game.gameState);
+  });
+
   app.delete("/api/games/:id", async (req, res) => {
     await storage.deleteGame(req.params.id);
     res.json({ ok: true });
