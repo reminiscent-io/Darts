@@ -11,7 +11,7 @@ interface HomeScreenProps {
 }
 
 export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: HomeScreenProps) {
-  const [savedGame, setSavedGame] = useState<ReturnType<typeof loadGame>>(() => {
+  const [savedGame, setSavedGame] = useState(() => {
     const saved = loadGame();
     return saved && saved.status === 'in_progress' ? saved : null;
   });

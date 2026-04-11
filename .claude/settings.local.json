@@ -8,8 +8,13 @@
       "Bash(done)",
       "Bash(npx vite build:*)",
       "Bash(curl:*)",
-      "Bash(git add:*)",
-      "Bash(GIT_EDITOR=true git rebase:*)"
+      "Bash(gh pr:*)",
+      "Bash(git fetch:*)",
+      "Bash(git merge-tree:*)",
+      "Bash(git rebase:*)",
+      "Bash(git stash:*)",
+      "Bash(git push:*)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
