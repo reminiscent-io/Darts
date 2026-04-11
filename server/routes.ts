@@ -19,6 +19,11 @@ export async function registerRoutes(
       return res.status(400).json({ message: "Missing id or gameState" });
     }
     await storage.upsertGame({ id, status: status || "in_progress", gameState });
+    try {
+      await storage.persistShotsFromGameState(gameState);
+    } catch (err) {
+      console.error("persistShotsFromGameState failed", err);
+    }
     res.json({ ok: true });
   });
 
@@ -65,6 +70,12 @@ export async function registerRoutes(
     await storage.addPlayerNames(names);
     const updated = await storage.getPlayerNames();
     res.json(updated);
+  });
+
+  app.get("/api/players/:name/shots", async (req, res) => {
+    const limit = req.query.limit ? Math.min(Number(req.query.limit) || 500, 5000) : 500;
+    const rows = await storage.getShotsForPlayer(req.params.name, limit);
+    res.json(rows);
   });
 
   return httpServer;

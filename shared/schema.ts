@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, jsonb, timestamp, boolean, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -30,9 +30,32 @@ export const playerNames = pgTable("player_names", {
   name: text("name").notNull().unique(),
 });
 
+export const shots = pgTable(
+  "shots",
+  {
+    id: varchar("id", { length: 64 }).primaryKey().default(sql`gen_random_uuid()`),
+    gameId: varchar("game_id", { length: 64 }).notNull(),
+    dartSeq: integer("dart_seq").notNull(),
+    playerName: text("player_name").notNull(),
+    teamName: text("team_name").notNull(),
+    gameMode: text("game_mode").notNull(),
+    target: text("target").notNull(),
+    multiplier: integer("multiplier").notNull(),
+    pointsScored: integer("points_scored").notNull(),
+    marksApplied: integer("marks_applied"),
+    isBust: boolean("is_bust"),
+    thrownAt: timestamp("thrown_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("shots_game_seq_idx").on(t.gameId, t.dartSeq),
+    index("shots_player_name_idx").on(t.playerName, t.thrownAt),
+  ],
+);
+
 export const insertGameSchema = createInsertSchema(games).omit({ createdAt: true, updatedAt: true });
 export const insertGameSummarySchema = createInsertSchema(gameSummaries).omit({ completedAt: true });
 export const insertPlayerNameSchema = createInsertSchema(playerNames).omit({ id: true });
+export const insertShotSchema = createInsertSchema(shots).omit({ id: true });
 
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type SelectGame = typeof games.$inferSelect;
@@ -40,3 +63,5 @@ export type InsertGameSummary = z.infer<typeof insertGameSummarySchema>;
 export type SelectGameSummary = typeof gameSummaries.$inferSelect;
 export type InsertPlayerName = z.infer<typeof insertPlayerNameSchema>;
 export type SelectPlayerName = typeof playerNames.$inferSelect;
+export type InsertShot = z.infer<typeof insertShotSchema>;
+export type SelectShot = typeof shots.$inferSelect;
