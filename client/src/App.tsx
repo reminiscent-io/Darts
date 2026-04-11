@@ -303,26 +303,44 @@ function SharedGameView() {
     setError(null);
   });
 
-  // Load game initially via HTTP (WebSocket join will also send state, whichever arrives first wins)
+  // Load game initially via HTTP with retries.
+  // The host's saveGameToDb is fire-and-forget, so when a recipient opens
+  // the link seconds after it's shared, the DB write may still be in flight
+  // and both the HTTP GET and the WebSocket join will briefly 404. Retry
+  // with backoff for a few seconds before declaring the link invalid. The
+  // WebSocket path can still win the race via gameLoaded.current.
   useEffect(() => {
     if (!gameId) return;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    loadGameById(gameId).then((loaded) => {
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    // 5 attempts spread over ~5s: 0, 500, 1000, 1500, 2000 ms between tries.
+    const MAX_ATTEMPTS = 5;
+
+    const attemptLoad = async (attempt: number) => {
+      if (cancelled || gameLoaded.current) return;
+      const loaded = await loadGameById(gameId);
+      if (cancelled || gameLoaded.current) return;
       if (loaded) {
         gameLoaded.current = true;
         setGame(loaded);
         setLoading(false);
-      } else if (!gameLoaded.current) {
-        // Only show error if we haven't received state from WebSocket either
-        timeoutId = setTimeout(() => {
-          if (!gameLoaded.current) {
-            setError("Game not found");
-            setLoading(false);
-          }
-        }, 2000);
+        return;
       }
-    });
-    return () => clearTimeout(timeoutId);
+      if (attempt < MAX_ATTEMPTS) {
+        timeoutId = setTimeout(() => attemptLoad(attempt + 1), attempt * 500);
+      } else if (!gameLoaded.current) {
+        setError("Game not found");
+        setLoading(false);
+      }
+    };
+
+    attemptLoad(1);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [gameId]);
 
   useEffect(() => {
