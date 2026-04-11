@@ -1,11 +1,67 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./db";
 import {
-  games, gameSummaries, playerNames,
+  games, gameSummaries, playerNames, shots,
   type InsertGame, type SelectGame,
   type InsertGameSummary, type SelectGameSummary,
-  type SelectPlayerName,
+  type InsertShot, type SelectShot,
 } from "@shared/schema";
+
+type DartRow = {
+  id: string;
+  playerId: string;
+  teamId: string;
+  target: number | "B" | "miss";
+  multiplier: 1 | 2 | 3;
+  pointsScored: number;
+  timestamp: string;
+  marksApplied?: number;
+  isBust?: boolean;
+};
+
+type GameStateForShots = {
+  id: string;
+  gameType: "x01" | "cricket";
+  teams: Array<{
+    id: string;
+    name: string;
+    players: Array<{ id: string; name: string }>;
+  }>;
+  dartHistory: DartRow[];
+};
+
+function extractShotRows(gameState: GameStateForShots): InsertShot[] {
+  const playerById = new Map<string, { name: string; teamId: string }>();
+  const teamNameById = new Map<string, string>();
+  for (const team of gameState.teams ?? []) {
+    teamNameById.set(team.id, team.name);
+    for (const p of team.players ?? []) {
+      playerById.set(p.id, { name: p.name, teamId: team.id });
+    }
+  }
+  const history = gameState.dartHistory ?? [];
+  const rows: InsertShot[] = [];
+  for (let i = 0; i < history.length; i++) {
+    const d = history[i];
+    const p = playerById.get(d.playerId);
+    if (!p) continue;
+    const teamName = teamNameById.get(p.teamId) ?? "";
+    rows.push({
+      gameId: gameState.id,
+      dartSeq: i,
+      playerName: p.name,
+      teamName,
+      gameMode: gameState.gameType,
+      target: String(d.target),
+      multiplier: d.multiplier,
+      pointsScored: d.pointsScored,
+      marksApplied: d.marksApplied ?? null,
+      isBust: d.isBust ?? null,
+      thrownAt: new Date(d.timestamp),
+    });
+  }
+  return rows;
+}
 
 export interface IStorage {
   getGame(id: string): Promise<SelectGame | undefined>;
@@ -19,6 +75,9 @@ export interface IStorage {
 
   getPlayerNames(): Promise<string[]>;
   addPlayerNames(names: string[]): Promise<void>;
+
+  persistShotsFromGameState(gameState: unknown): Promise<void>;
+  getShotsForPlayer(playerName: string, limit?: number): Promise<SelectShot[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -96,6 +155,24 @@ export class DatabaseStorage implements IStorage {
       .insert(playerNames)
       .values(unique.map((name) => ({ name })))
       .onConflictDoNothing();
+  }
+
+  async persistShotsFromGameState(gameState: unknown): Promise<void> {
+    if (!gameState || typeof gameState !== "object") return;
+    const rows = extractShotRows(gameState as GameStateForShots);
+    if (rows.length === 0) return;
+    await db.insert(shots).values(rows).onConflictDoNothing({
+      target: [shots.gameId, shots.dartSeq],
+    });
+  }
+
+  async getShotsForPlayer(playerName: string, limit = 500): Promise<SelectShot[]> {
+    return db
+      .select()
+      .from(shots)
+      .where(eq(shots.playerName, playerName))
+      .orderBy(desc(shots.thrownAt))
+      .limit(limit);
   }
 }
 
