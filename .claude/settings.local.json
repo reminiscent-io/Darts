@@ -14,7 +14,9 @@
       "Bash(git rebase:*)",
       "Bash(git stash:*)",
       "Bash(git push:*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)"
     ]
   }
 }
