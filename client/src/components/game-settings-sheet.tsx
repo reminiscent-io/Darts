@@ -208,7 +208,7 @@ export default function GameSettingsSheet({
                 </div>
                 {upcoming.map((ref, idx) => (
                   <div
-                    key={ref.playerId}
+                    key={`${ref.playerId}-${idx}`}
                     className="flex items-center justify-between bg-muted/30 rounded-md px-3 py-2"
                   >
                     <span className="text-sm">{playerNameByRef(ref)}</span>
