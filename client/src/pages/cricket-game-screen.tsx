@@ -36,6 +36,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const currentTeam = game.teams[currentTeamIndex];
   const dartsThrown = game.currentTurnDarts.length;
+  const isSolo = game.mode === 'solo';
 
   const upcomingPlayers = useMemo(() => {
     const orderLen = game.turnOrder.length;
@@ -233,16 +234,16 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         </div>
 
         <div className="flex-1 border-x border-border">
-          <div className="grid grid-cols-[1fr_auto_1fr]">
+          <div className={isSolo ? "grid grid-cols-[1fr_auto]" : "grid grid-cols-[1fr_auto_1fr]"}>
             {CRICKET_NUMBERS.map((num) => {
               const key = String(num);
               const t1Marks = game.teams[0].marks[key] || 0;
-              const t2Marks = game.teams[1].marks[key] || 0;
+              const t2Marks = !isSolo ? (game.teams[1].marks[key] || 0) : 0;
               const dead = isNumberDead(game, num);
               const t1Closed = isNumberClosedByTeam(game.teams[0], num);
-              const t2Closed = isNumberClosedByTeam(game.teams[1], num);
-              const liveForT1 = t1Closed && !t2Closed;
-              const liveForT2 = t2Closed && !t1Closed;
+              const t2Closed = !isSolo && isNumberClosedByTeam(game.teams[1], num);
+              const liveForT1 = isSolo ? t1Closed : t1Closed && !t2Closed;
+              const liveForT2 = !isSolo && t2Closed && !t1Closed;
               const opacityClass = dead ? 'opacity-25' : '';
 
               return (
@@ -260,9 +261,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
                       {num === 'B' ? 'BULL' : num}
                     </span>
                   </div>
-                  <div className={`text-center py-1.5 border-b border-border/50 ${opacityClass} ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
-                    {renderMarks(Math.min(t2Marks, 3))}
-                  </div>
+                  {!isSolo && (
+                    <div className={`text-center py-1.5 border-b border-border/50 ${opacityClass} ${liveForT2 ? 'bg-chart-2/8' : ''}`}>
+                      {renderMarks(Math.min(t2Marks, 3))}
+                    </div>
+                  )}
                 </Fragment>
               );
             })}
@@ -270,18 +273,20 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         </div>
 
         {/* Team 2 Points - Right */}
-        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
-          currentTeamIndex === 1 ? 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50' : ''
-        }`}>
-          <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2"
-            data-testid="text-team2-name"
-          >
-            {game.teams[1].name}
+        {!isSolo && (
+          <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
+            currentTeamIndex === 1 ? 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50' : ''
+          }`}>
+            <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2"
+              data-testid="text-team2-name"
+            >
+              {game.teams[1].name}
+            </div>
+            <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team2-points">
+              {game.teams[1].points}
+            </div>
           </div>
-          <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team2-points">
-            {game.teams[1].points}
-          </div>
-        </div>
+        )}
       </div>
 
       <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 border-l-4 transition-colors duration-300 ${
@@ -377,7 +382,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         </div>
         <div className="flex flex-col justify-between shrink-0 w-8 py-2 pr-2">
           <span className="font-mono text-xs font-bold tabular-nums text-primary">{game.teams[0].points}</span>
-          <span className="font-mono text-xs font-bold tabular-nums text-chart-2">{game.teams[1].points}</span>
+          {!isSolo && (
+            <span className="font-mono text-xs font-bold tabular-nums text-chart-2">{game.teams[1].points}</span>
+          )}
         </div>
       </div>
 

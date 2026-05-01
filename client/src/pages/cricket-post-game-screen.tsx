@@ -13,6 +13,7 @@ interface CricketPostGameScreenProps {
 
 export default function CricketPostGameScreen({ game, onRematch, onNewGame, onHome }: CricketPostGameScreenProps) {
   const winnerTeam = game.teams.find(t => t.id === game.winnerId);
+  const isSolo = game.mode === 'solo';
 
   const allPlayers = game.teams.flatMap(t =>
     t.players.map(p => ({
@@ -41,7 +42,9 @@ export default function CricketPostGameScreen({ game, onRematch, onNewGame, onHo
         <h1 className="text-2xl font-bold font-mono text-primary" data-testid="text-winner-name">
           {winnerTeam?.name || "Winner"}
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">wins the match</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isSolo ? 'closed all numbers' : 'wins the match'}
+        </p>
       </motion.div>
 
       <motion.div
@@ -50,7 +53,10 @@ export default function CricketPostGameScreen({ game, onRematch, onNewGame, onHo
         transition={{ delay: 0.2 }}
         className="px-4 py-3 border-b border-border"
       >
-        <div className="grid grid-cols-2 gap-4 text-center">
+        <div
+          className="grid gap-4 text-center"
+          style={{ gridTemplateColumns: `repeat(${game.teams.length}, minmax(0, 1fr))` }}
+        >
           {game.teams.map((team, idx) => (
             <div key={team.id}>
               <div className={`text-xs font-medium tracking-wider uppercase ${

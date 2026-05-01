@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
 import {
-  createCricketGame, loadGame, loadGameFromDb, saveGame, clearSavedGame,
+  createCricketGame, createSoloCricketGame, loadGame, loadGameFromDb, saveGame, clearSavedGame,
   saveGameToHistory, savePlayerNames, migrateStorage, loadGameById
 } from "@/lib/game-logic";
 import { createX01Game } from "@/lib/x01-game-logic";
@@ -55,13 +55,17 @@ function MainApp() {
     let newGame: Game;
 
     if (config.gameType === 'cricket') {
-      newGame = createCricketGame(
-        config.team1Name,
-        config.team1Players,
-        config.team2Name,
-        config.team2Players,
-        config.firstTeamIndex
-      );
+      if (config.cricketMode === 'solo') {
+        newGame = createSoloCricketGame(config.soloPlayer);
+      } else {
+        newGame = createCricketGame(
+          config.team1Name,
+          config.team1Players,
+          config.team2Name,
+          config.team2Players,
+          config.firstTeamIndex
+        );
+      }
     } else {
       if (config.x01Mode === 'individual') {
         newGame = createX01Game({
@@ -109,13 +113,17 @@ function MainApp() {
     let newGame: Game;
     if (game.gameType === 'cricket') {
       const cg = game as CricketGame;
-      newGame = createCricketGame(
-        cg.teams[0].name,
-        cg.teams[0].players.map(p => p.name),
-        cg.teams[1].name,
-        cg.teams[1].players.map(p => p.name),
-        0
-      );
+      if (cg.mode === 'solo') {
+        newGame = createSoloCricketGame(cg.teams[0].players[0]?.name || cg.teams[0].name);
+      } else {
+        newGame = createCricketGame(
+          cg.teams[0].name,
+          cg.teams[0].players.map(p => p.name),
+          cg.teams[1].name,
+          cg.teams[1].players.map(p => p.name),
+          0
+        );
+      }
     } else {
       const xg = game as X01Game;
       if (xg.mode === 'individual') {
