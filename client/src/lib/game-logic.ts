@@ -372,6 +372,18 @@ export function renamePlayer(game: Game, playerId: string, name: string): Game {
   return { ...game, teams: newTeams } as Game;
 }
 
+export function reorderUpcomingTurns(game: Game, newUpcoming: PlayerRef[]): Game {
+  const len = game.turnOrder.length;
+  if (newUpcoming.length !== len - 1) return game;
+
+  const newTurnOrder = [...game.turnOrder];
+  for (let i = 0; i < newUpcoming.length; i++) {
+    const pos = (game.currentTurnIndex + 1 + i) % len;
+    newTurnOrder[pos] = newUpcoming[i];
+  }
+  return { ...game, turnOrder: newTurnOrder } as Game;
+}
+
 // --- Storage ---
 
 const MAX_HISTORY = 50;
