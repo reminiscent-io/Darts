@@ -42,15 +42,44 @@ export function createCricketGame(
     points: 0,
   };
 
-  const teams: [CricketTeam, CricketTeam] = firstTeamIndex === 0 ? [team1, team2] : [team2, team1];
+  const teams: CricketTeam[] = firstTeamIndex === 0 ? [team1, team2] : [team2, team1];
   const turnOrder = buildTurnOrder(teams);
 
   return {
     gameType: 'cricket',
     id: generateId(),
+    mode: 'team',
     teams,
     currentTurnIndex: 0,
     turnOrder,
+    dartHistory: [],
+    currentTurnDarts: [],
+    status: 'in_progress',
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function createSoloCricketGame(playerName: string): CricketGame {
+  const teamId = generateId();
+  const team: CricketTeam = {
+    id: teamId,
+    name: playerName.trim() || 'Player 1',
+    players: [{
+      id: generateId(),
+      name: playerName.trim() || 'Player 1',
+      teamId,
+    }],
+    marks: Object.fromEntries(CRICKET_NUMBERS.map(n => [String(n), 0])),
+    points: 0,
+  };
+
+  return {
+    gameType: 'cricket',
+    id: generateId(),
+    mode: 'solo',
+    teams: [team],
+    currentTurnIndex: 0,
+    turnOrder: buildTurnOrder([team]),
     dartHistory: [],
     currentTurnDarts: [],
     status: 'in_progress',
@@ -112,7 +141,7 @@ export function recordCricketDart(
   if (target !== 'miss') {
     const key = String(target);
     const currentMarks = team.marks[key] || 0;
-    const opponentMarks = opponentTeam.marks[key] || 0;
+    const opponentMarks = opponentTeam ? (opponentTeam.marks[key] || 0) : 0;
 
     const hitsThisDart = multiplier;
     const marksNeededToClose = Math.max(0, 3 - currentMarks);
@@ -140,10 +169,7 @@ export function recordCricketDart(
     timestamp: new Date().toISOString(),
   };
 
-  const newTeams: [CricketTeam, CricketTeam] = [
-    { ...game.teams[0] },
-    { ...game.teams[1] },
-  ];
+  const newTeams: CricketTeam[] = game.teams.map(t => ({ ...t }));
 
   if (target !== 'miss') {
     const activeTeam = newTeams[teamIndex];
@@ -174,6 +200,8 @@ export function checkCricketWinCondition(game: CricketGame, teamIndex: number): 
 
   const allClosed = CRICKET_NUMBERS.every(n => (team.marks[String(n)] || 0) >= 3);
   if (!allClosed) return false;
+
+  if (!opponent) return true;
 
   return team.points >= opponent.points;
 }
@@ -236,10 +264,7 @@ export function undoLastCricketDart(game: CricketGame): { game: CricketGame; cro
 }
 
 function revertCricketDart(game: CricketGame, dart: DartEntry): CricketGame {
-  const newTeams: [CricketTeam, CricketTeam] = [
-    { ...game.teams[0] },
-    { ...game.teams[1] },
-  ];
+  const newTeams: CricketTeam[] = game.teams.map(t => ({ ...t }));
 
   if (dart.target !== 'miss') {
     const teamIndex = newTeams.findIndex(t => t.id === dart.teamId);
@@ -289,6 +314,7 @@ export function formatDart(dart: DartEntry): string {
 
 export function isNumberDead(game: CricketGame, num: CricketNumber): boolean {
   const key = String(num);
+  if (game.teams.length < 2) return false;
   return (game.teams[0].marks[key] || 0) >= 3 && (game.teams[1].marks[key] || 0) >= 3;
 }
 

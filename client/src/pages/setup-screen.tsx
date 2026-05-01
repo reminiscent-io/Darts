@@ -19,6 +19,9 @@ export interface GameSetupConfig {
   x01Mode: 'team' | 'individual';
   // Individual mode players
   individualPlayers: string[];
+  // Cricket-specific: solo toggle (single player vs no opponent)
+  cricketMode: 'team' | 'solo';
+  soloPlayer: string;
 }
 
 interface SetupScreenProps {
@@ -98,6 +101,10 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
   const [doubleOut, setDoubleOut] = useState(true);
   const [x01Mode, setX01Mode] = useState<'team' | 'individual'>('team');
 
+  // Cricket options
+  const [cricketMode, setCricketMode] = useState<'team' | 'solo'>('team');
+  const [soloPlayer, setSoloPlayer] = useState("");
+
   // Team mode state
   const [team1Name, setTeam1Name] = useState("Team 1");
   const [team2Name, setTeam2Name] = useState("Team 2");
@@ -117,11 +124,14 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
     });
   }, []);
 
-  const isTeamMode = gameType === 'cricket' || x01Mode === 'team';
+  const isCricketSolo = gameType === 'cricket' && cricketMode === 'solo';
+  const isTeamMode = !isCricketSolo && (gameType === 'cricket' || x01Mode === 'team');
 
-  const canStart = isTeamMode
-    ? team1Players.length >= 1 && team2Players.length >= 1
-    : individualPlayers.length >= 2;
+  const canStart = isCricketSolo
+    ? true
+    : isTeamMode
+      ? team1Players.length >= 1 && team2Players.length >= 1
+      : individualPlayers.length >= 1;
 
   const addTeamPlayer = (team: 1 | 2) => {
     if (team === 1) {
@@ -158,7 +168,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
   };
 
   const removeIndividualPlayer = (index: number) => {
-    if (individualPlayers.length > 2) {
+    if (individualPlayers.length > 1) {
       setIndividualPlayers(individualPlayers.filter((_, i) => i !== index));
     }
   };
@@ -185,6 +195,8 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
       doubleOut,
       x01Mode,
       individualPlayers: individualPlayers.map((p, i) => p.trim() || `Player ${i + 1}`),
+      cricketMode,
+      soloPlayer: soloPlayer.trim() || 'Player 1',
     };
     onStartGame(config);
   };
@@ -234,6 +246,43 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
             ))}
           </div>
         </motion.div>
+
+        {/* Cricket Options */}
+        <AnimatePresence>
+          {gameType === 'cricket' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-2">
+                Mode
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  data-testid="button-cricket-mode-team"
+                  variant={cricketMode === 'team' ? 'default' : 'secondary'}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setCricketMode('team')}
+                >
+                  Teams
+                </Button>
+                <Button
+                  data-testid="button-cricket-mode-solo"
+                  variant={cricketMode === 'solo' ? 'default' : 'secondary'}
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setCricketMode('solo')}
+                >
+                  Solo
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* X01 Options */}
         <AnimatePresence>
@@ -291,7 +340,29 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
 
         {/* Team Setup or Individual Player Setup */}
         <AnimatePresence mode="wait">
-          {isTeamMode ? (
+          {isCricketSolo ? (
+            <motion.div
+              key="solo-setup"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-3"
+            >
+              <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
+                Player
+              </div>
+              <PlayerNameInput
+                value={soloPlayer}
+                onChange={setSoloPlayer}
+                placeholder="Player 1"
+                testId="input-solo-player"
+                savedNames={savedNames}
+              />
+              <p className="text-xs text-muted-foreground/60">
+                Close all numbers (15-20, Bull) to win.
+              </p>
+            </motion.div>
+          ) : isTeamMode ? (
             <motion.div
               key="team-setup"
               initial={{ opacity: 0 }}
@@ -427,7 +498,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                       testId={`input-individual-player${idx}`}
                       savedNames={savedNames}
                     />
-                    {individualPlayers.length > 2 && (
+                    {individualPlayers.length > 1 && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -465,7 +536,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
           onClick={handleStart}
         >
           <Play className="w-4 h-4" />
-          Start {gameType === 'cricket' ? 'Cricket' : startingScore} Game
+          Start {gameType === 'cricket' ? (isCricketSolo ? 'Solo Cricket' : 'Cricket') : startingScore} Game
         </Button>
       </div>
     </div>

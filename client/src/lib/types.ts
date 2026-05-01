@@ -48,7 +48,8 @@ export interface CricketTeam {
 export interface CricketGame {
   gameType: 'cricket';
   id: string;
-  teams: [CricketTeam, CricketTeam];
+  mode: 'team' | 'solo';
+  teams: CricketTeam[];
   currentTurnIndex: number;
   turnOrder: PlayerRef[];
   dartHistory: DartEntry[];
