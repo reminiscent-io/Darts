@@ -7,6 +7,7 @@ import {
   getDartPointValue,
   getX01PlayerStats,
   getCurrentTurnTotal,
+  setDoubleOut,
 } from './x01-game-logic';
 import { advanceTurn, getCurrentPlayer } from './game-logic';
 import type { X01Game } from './types';
@@ -1046,5 +1047,63 @@ describe('team mode game', () => {
     const r = recordX01Dart(game, 20, 3);
     expect(r.game.teams[0].remainingScore).toBe(441);
     expect(r.game.teams[1].remainingScore).toBe(501);
+  });
+});
+
+describe('setDoubleOut', () => {
+  it('flips the doubleOut flag', () => {
+    const game = createX01Game({
+      startingScore: 501,
+      doubleOut: false,
+      mode: 'individual',
+      playerNames: ['Alice', 'Bob'],
+    });
+
+    const enabled = setDoubleOut(game, true);
+    expect(enabled.doubleOut).toBe(true);
+
+    const disabled = setDoubleOut(enabled, false);
+    expect(disabled.doubleOut).toBe(false);
+  });
+
+  it('preserves remainingScore for every team', () => {
+    const game = createX01Game({
+      startingScore: 501,
+      doubleOut: false,
+      mode: 'individual',
+      playerNames: ['Alice', 'Bob'],
+    });
+    const afterDart = recordX01Dart(game, 20, 3).game; // -60
+    expect(afterDart.teams[0].remainingScore).toBe(441);
+
+    const toggled = setDoubleOut(afterDart, true);
+    expect(toggled.teams[0].remainingScore).toBe(441);
+    expect(toggled.teams[1].remainingScore).toBe(501);
+  });
+
+  it('preserves dart history', () => {
+    const game = createX01Game({
+      startingScore: 301,
+      doubleOut: false,
+      mode: 'individual',
+      playerNames: ['Alice', 'Bob'],
+    });
+    const afterDart = recordX01Dart(game, 20, 1).game;
+
+    const toggled = setDoubleOut(afterDart, true);
+    expect(toggled.dartHistory).toEqual(afterDart.dartHistory);
+    expect(toggled.currentTurnDarts).toEqual(afterDart.currentTurnDarts);
+  });
+
+  it('returns a new game object (immutable update)', () => {
+    const game = createX01Game({
+      startingScore: 501,
+      doubleOut: false,
+      mode: 'individual',
+      playerNames: ['Alice', 'Bob'],
+    });
+    const result = setDoubleOut(game, true);
+    expect(result).not.toBe(game);
+    expect(game.doubleOut).toBe(false);
   });
 });
