@@ -1,14 +1,52 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { Trophy, RotateCcw, Home } from "lucide-react";
-import { X01Game } from "@/lib/types";
-import { getX01PlayerStats } from "@/lib/x01-game-logic";
+import { RotateCcw, Home } from "lucide-react";
+import { X01Game, DartEntry } from "@/lib/types";
+import { getX01PlayerStats, formatX01Dart } from "@/lib/x01-game-logic";
 
 interface X01PostGameScreenProps {
   game: X01Game;
   onRematch: () => void;
   onNewGame: () => void;
   onHome: () => void;
+}
+
+const EASE_OUT_QUINT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+function BullseyeBackdrop() {
+  return (
+    <svg
+      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none"
+      width="420"
+      height="420"
+      viewBox="-160 -160 320 320"
+      aria-hidden="true"
+    >
+      <motion.g
+        initial={{ scale: 0.6, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, ease: EASE_OUT_QUINT }}
+      >
+        <circle r="150" fill="none" stroke="hsl(var(--border))" strokeWidth="1" />
+        <circle r="110" fill="none" stroke="hsl(var(--primary) / 0.12)" strokeWidth="1" />
+        <circle r="70" fill="none" stroke="hsl(var(--primary) / 0.22)" strokeWidth="1.5" />
+        <circle r="32" fill="none" stroke="hsl(var(--primary) / 0.45)" strokeWidth="1.5" />
+        <circle r="6" fill="hsl(var(--primary) / 0.6)" />
+      </motion.g>
+    </svg>
+  );
+}
+
+function getCheckoutDarts(game: X01Game): DartEntry[] {
+  if (!game.winnerId) return [];
+  const closing: DartEntry[] = [];
+  for (let i = game.dartHistory.length - 1; i >= 0; i--) {
+    const d = game.dartHistory[i];
+    if (d.teamId !== game.winnerId) break;
+    closing.unshift(d);
+    if (closing.length >= 3) break;
+  }
+  return closing;
 }
 
 export default function X01PostGameScreen({ game, onRematch, onNewGame, onHome }: X01PostGameScreenProps) {
@@ -20,6 +58,7 @@ export default function X01PostGameScreen({ game, onRematch, onNewGame, onHome }
       ...p,
       teamName: isIndividual ? '' : t.name,
       teamId: t.id,
+      isWinner: t.id === game.winnerId,
       remainingScore: t.remainingScore,
       stats: getX01PlayerStats(game, p.id),
     }))
@@ -29,121 +68,214 @@ export default function X01PostGameScreen({ game, onRematch, onNewGame, onHome }
     p.stats.ppd > (best?.stats.ppd || 0) ? p : best
   , allPlayers[0]);
 
-  const teamColors = ['text-primary', 'text-chart-2', 'text-emerald-400', 'text-purple-400', 'text-orange-400', 'text-pink-400'];
+  const rankedPlayers = [...allPlayers].sort((a, b) => b.stats.ppd - a.stats.ppd);
+
+  const teamColors = ['text-primary', 'text-chart-2', 'text-chart-4', 'text-chart-3', 'text-chart-5'];
+  const teamColorFor = (teamId: string) => {
+    const idx = game.teams.findIndex(t => t.id === teamId);
+    return teamColors[idx % teamColors.length];
+  };
+
+  const winnerName = isIndividual
+    ? winnerTeam?.players[0]?.name || "Winner"
+    : winnerTeam?.name || "Winner";
+
+  const winnerInitial = winnerName.slice(0, 1).toUpperCase();
+  const winnerDartCount = game.dartHistory.filter(d => d.teamId === game.winnerId).length;
+  const checkoutDarts = getCheckoutDarts(game);
 
   return (
     <div className="h-full flex flex-col overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="text-center py-6 px-4 border-b border-border"
-      >
-        <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center mx-auto mb-3">
-          <Trophy className="w-6 h-6 text-primary" />
-        </div>
-        <h1 className="text-2xl font-bold font-mono text-primary">
-          {isIndividual
-            ? winnerTeam?.players[0]?.name || "Winner"
-            : winnerTeam?.name || "Winner"}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          wins the {game.startingScore} game!
-        </p>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="px-4 py-3 border-b border-border"
-      >
-        <div className={`grid gap-4 text-center ${game.teams.length <= 4 ? `grid-cols-${game.teams.length}` : 'grid-cols-3'}`}
-          style={{ gridTemplateColumns: `repeat(${Math.min(game.teams.length, 4)}, minmax(0, 1fr))` }}
+      {/* Hero — Game Shot */}
+      <section className="relative overflow-hidden px-4 pt-10 pb-8 border-b border-border">
+        <BullseyeBackdrop />
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: EASE_OUT_QUINT }}
+          className="relative text-center"
         >
-          {game.teams.map((team, idx) => {
+          <div className="text-[11px] font-semibold tracking-[0.32em] text-primary/70 uppercase">
+            Game Shot · {game.startingScore}
+          </div>
+          <h1
+            className="font-mono font-extrabold text-primary leading-[0.95] tracking-tight mt-2 text-[clamp(2.75rem,12vw,5rem)] break-words"
+            data-testid="text-winner-name"
+          >
+            {winnerName}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-3 tracking-wide">
+            out in {winnerDartCount} dart{winnerDartCount === 1 ? '' : 's'}
+          </p>
+
+          {checkoutDarts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.5, ease: EASE_OUT_QUINT }}
+              className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-primary/30 bg-primary/[0.06]"
+            >
+              <span className="text-[10px] font-semibold tracking-[0.24em] text-primary/80 uppercase">
+                Checkout
+              </span>
+              <span className="font-mono text-xs font-bold text-foreground tracking-wider">
+                {checkoutDarts.map(d => formatX01Dart(d)).join(' · ')}
+              </span>
+            </motion.div>
+          )}
+        </motion.div>
+      </section>
+
+      {/* Score slab */}
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.25, ease: EASE_OUT_QUINT }}
+        className="border-b border-border"
+      >
+        <ul className="divide-y divide-border">
+          {game.teams.map((team) => {
             const isWinner = team.id === game.winnerId;
+            const label = isIndividual ? team.players[0]?.name || team.name : team.name;
             return (
-              <div key={team.id}>
-                <div className={`text-xs font-medium tracking-wider uppercase ${teamColors[idx % teamColors.length]}`}>
-                  {isIndividual ? team.players[0]?.name : team.name}
+              <li
+                key={team.id}
+                className={`px-4 py-4 flex items-center justify-between gap-4 ${
+                  isWinner ? 'bg-primary/[0.06]' : ''
+                }`}
+              >
+                <div className={`text-[10px] font-semibold tracking-[0.28em] uppercase ${
+                  isWinner ? teamColorFor(team.id) : 'text-muted-foreground/70'
+                }`}>
+                  {label}
                 </div>
-                <div className="font-mono text-xl font-bold mt-1">
+                <div className="font-mono text-5xl font-bold tabular-nums tracking-tight">
                   {team.remainingScore === 0 ? (
                     <span className="text-primary">OUT</span>
                   ) : (
-                    team.remainingScore
+                    <span className="text-muted-foreground/45">{team.remainingScore}</span>
                   )}
                 </div>
-                {isWinner && (
-                  <Trophy className="w-3.5 h-3.5 text-primary mx-auto mt-1" />
-                )}
-              </div>
+              </li>
             );
           })}
-        </div>
-      </motion.div>
+        </ul>
+      </motion.section>
 
-      <motion.div
+      {/* MVP band */}
+      {mvp && (
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.4, ease: EASE_OUT_QUINT }}
+          className="px-4 py-5 border-b border-border"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+              <span className="font-mono text-xl font-bold text-primary">
+                {mvp.name.slice(0, 1).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold tracking-[0.28em] text-primary/70 uppercase">
+                Top of the oche
+              </div>
+              <div className="text-base font-semibold truncate mt-0.5">{mvp.name}</div>
+              {!isIndividual && (
+                <div className="text-xs text-muted-foreground truncate">{mvp.teamName}</div>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <div className="font-mono text-3xl font-bold tabular-nums text-primary">
+                {mvp.stats.ppd.toFixed(1)}
+              </div>
+              <div className="text-[10px] tracking-[0.22em] text-muted-foreground uppercase mt-0.5">
+                Points / dart
+              </div>
+            </div>
+          </div>
+        </motion.section>
+      )}
+
+      {/* Stats table */}
+      <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="px-4 py-3 flex-1"
+        transition={{ duration: 0.3, delay: 0.55, ease: EASE_OUT_QUINT }}
+        className="flex-1 px-4 py-4"
       >
-        <h3 className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-3">
-          Player Stats
-        </h3>
-        <div className="space-y-2">
-          {allPlayers.map((p) => {
-            const isMvp = p.id === mvp?.id;
-            return (
-              <div
-                key={p.id}
-                className={`flex items-center justify-between py-2 px-3 rounded-md ${
-                  isMvp ? 'bg-primary/8 border border-primary/20' : 'bg-muted/20'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{p.name}</span>
-                    {isMvp && (
-                      <span className="text-[10px] font-semibold text-primary bg-primary/15 px-1.5 py-0.5 rounded-sm tracking-wider">
-                        MVP
-                      </span>
-                    )}
-                  </div>
-                  {!isIndividual && (
-                    <span className="text-xs text-muted-foreground">{p.teamName}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-right shrink-0">
-                  <div>
-                    <div className="text-xs text-muted-foreground">PPD</div>
-                    <div className="font-mono text-sm font-semibold">{p.stats.ppd.toFixed(1)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">3-Dart</div>
-                    <div className="font-mono text-sm font-semibold">{p.stats.threeDartAvg.toFixed(1)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Best</div>
-                    <div className="font-mono text-sm font-semibold">{p.stats.highestRound}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">Darts</div>
-                    <div className="font-mono text-sm font-semibold">{p.stats.totalDarts}</div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Use 4 numeric columns: PPD, 3-DART, BEST, DARTS */}
+        <div className="grid grid-cols-[1fr_repeat(4,minmax(0,auto))] gap-x-3 sm:gap-x-4 items-baseline pb-2 border-b border-border">
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase">
+            Player
+          </span>
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase text-right">
+            PPD
+          </span>
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase text-right">
+            3-Dart
+          </span>
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase text-right">
+            Best
+          </span>
+          <span className="text-[10px] font-semibold tracking-[0.22em] text-muted-foreground uppercase text-right">
+            Darts
+          </span>
         </div>
-      </motion.div>
+        <ul>
+          {rankedPlayers.map((p, i) => (
+            <motion.li
+              key={p.id}
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.25, delay: 0.6 + i * 0.04, ease: EASE_OUT_QUINT }}
+              className={`grid grid-cols-[1fr_repeat(4,minmax(0,auto))] gap-x-3 sm:gap-x-4 items-baseline py-2.5 border-b border-border/50 ${
+                p.isWinner ? 'bg-primary/[0.04] -mx-4 px-4' : ''
+              }`}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={`font-mono text-[10px] tabular-nums w-4 ${
+                    p.isWinner ? 'text-primary' : 'text-muted-foreground/60'
+                  }`}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="text-sm font-medium truncate">{p.name}</span>
+                </div>
+                {!isIndividual && (
+                  <span className="text-[11px] text-muted-foreground/70 truncate ml-6 block">
+                    {p.teamName}
+                  </span>
+                )}
+              </div>
+              <span className={`font-mono text-sm font-semibold tabular-nums text-right ${
+                p.isWinner ? 'text-foreground' : 'text-foreground/85'
+              }`}>
+                {p.stats.ppd.toFixed(1)}
+              </span>
+              <span className="font-mono text-sm tabular-nums text-right text-foreground/85">
+                {p.stats.threeDartAvg.toFixed(1)}
+              </span>
+              <span className="font-mono text-sm tabular-nums text-right text-foreground/85">
+                {p.stats.highestRound}
+              </span>
+              <span className="font-mono text-sm tabular-nums text-right text-foreground/85">
+                {p.stats.totalDarts}
+              </span>
+            </motion.li>
+          ))}
+        </ul>
+      </motion.section>
 
-      <div className="p-4 border-t border-border space-y-2">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.7, ease: EASE_OUT_QUINT }}
+        className="p-4 border-t border-border space-y-2"
+      >
         <Button
           size="lg"
-          className="w-full gap-2"
+          className="w-full gap-2 h-14 text-sm font-bold tracking-[0.18em] uppercase"
           onClick={onRematch}
         >
           <RotateCcw className="w-4 h-4" />
@@ -158,7 +290,7 @@ export default function X01PostGameScreen({ game, onRematch, onNewGame, onHome }
             Home
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
