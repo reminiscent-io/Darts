@@ -23,6 +23,31 @@ import {
 } from "@/lib/game-logic";
 import { setDoubleOut } from "@/lib/x01-game-logic";
 
+function TeamNameInput({
+  team,
+  onCommit,
+}: {
+  team: { id: string; name: string };
+  onCommit: (val: string) => void;
+}) {
+  const [localValue, setLocalValue] = useState(team.name);
+
+  useEffect(() => {
+    setLocalValue(team.name);
+  }, [team.name]);
+
+  return (
+    <input
+      data-testid={`settings-team-name-${team.id}`}
+      type="text"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={() => onCommit(localValue)}
+      className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm font-semibold outline-none focus:border-primary/50"
+    />
+  );
+}
+
 interface GameSettingsSheetProps {
   game: Game;
   onGameUpdate: (game: Game) => void;
@@ -46,9 +71,7 @@ export default function GameSettingsSheet({
     });
   }, [open]);
 
-  const isTeamMode =
-    (game.gameType === "cricket" && game.mode === "team") ||
-    (game.gameType === "x01" && game.mode === "team");
+  const isTeamMode = game.mode === "team";
 
   const showTurnOrder = game.turnOrder.length > 1;
 
@@ -111,12 +134,9 @@ export default function GameSettingsSheet({
             {isTeamMode
               ? game.teams.map((team) => (
                   <div key={team.id} className="space-y-2">
-                    <input
-                      data-testid={`settings-team-name-${team.id}`}
-                      type="text"
-                      defaultValue={team.name}
-                      onBlur={(e) => commitTeamName(team.id, team.name, e.target.value)}
-                      className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm font-semibold outline-none focus:border-primary/50"
+                    <TeamNameInput
+                      team={team}
+                      onCommit={(val) => commitTeamName(team.id, team.name, val)}
                     />
                     <div className="space-y-2 pl-3">
                       {team.players.map((p) => (
@@ -188,7 +208,7 @@ export default function GameSettingsSheet({
                 </div>
                 {upcoming.map((ref, idx) => (
                   <div
-                    key={`${ref.playerId}-${idx}`}
+                    key={ref.playerId}
                     className="flex items-center justify-between bg-muted/30 rounded-md px-3 py-2"
                   >
                     <span className="text-sm">{playerNameByRef(ref)}</span>
