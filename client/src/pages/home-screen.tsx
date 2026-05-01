@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { loadGame, loadGameFromDb, loadGameHistory, loadGameHistoryFromDb } from "@/lib/game-logic";
 import { motion } from "framer-motion";
-import { Target, Play, RotateCcw, History } from "lucide-react";
+import { Target, Play, RotateCcw, History, Gamepad2, Users, Share2 } from "lucide-react";
 
 interface HomeScreenProps {
   onNewGame: () => void;
@@ -103,14 +103,34 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
         )}
       </motion.div>
 
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.5 }}
-        className="mt-12 text-xs text-muted-foreground/60 tracking-wide"
+        className="mt-12 w-full max-w-xs flex flex-col gap-3"
       >
-        Cricket & X01 darts scoring
-      </motion.p>
+        <p className="text-[10px] text-muted-foreground/60 tracking-widest uppercase text-center">
+          How it works
+        </p>
+        <ol className="flex flex-col gap-2.5">
+          {[
+            { icon: Gamepad2, text: "Pick Cricket or X01" },
+            { icon: Users, text: "Add your players" },
+            { icon: Share2, text: "Share the link & play live" },
+          ].map(({ icon: Icon, text }, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-3 rounded-md border border-border/40 bg-card/40 px-3 py-2"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold font-mono text-primary">
+                {i + 1}
+              </span>
+              <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">{text}</span>
+            </li>
+          ))}
+        </ol>
+      </motion.div>
     </div>
   );
 }
