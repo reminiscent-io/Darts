@@ -347,6 +347,43 @@ export function confirmWin(game: Game, teamId: string): Game {
   } as Game;
 }
 
+export function renameTeam(game: Game, teamId: string, name: string): Game {
+  const newTeams = game.teams.map(t =>
+    t.id === teamId ? { ...t, name } : t
+  );
+  return { ...game, teams: newTeams } as Game;
+}
+
+export function renamePlayer(game: Game, playerId: string, name: string): Game {
+  const newTeams = game.teams.map(t => {
+    const playerIdx = t.players.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return t;
+    const newPlayers = t.players.map((p, i) =>
+      i === playerIdx ? { ...p, name } : p
+    );
+    // Solo cricket convention: team.name mirrors the single player's name.
+    const isSoloTeam = t.players.length === 1 && t.name === t.players[0].name;
+    return {
+      ...t,
+      players: newPlayers,
+      ...(isSoloTeam ? { name } : {}),
+    };
+  });
+  return { ...game, teams: newTeams } as Game;
+}
+
+export function reorderUpcomingTurns(game: Game, newUpcoming: PlayerRef[]): Game {
+  const len = game.turnOrder.length;
+  if (newUpcoming.length !== len - 1) return game;
+
+  const newTurnOrder = [...game.turnOrder];
+  for (let i = 0; i < newUpcoming.length; i++) {
+    const pos = (game.currentTurnIndex + 1 + i) % len;
+    newTurnOrder[pos] = newUpcoming[i];
+  }
+  return { ...game, turnOrder: newTurnOrder } as Game;
+}
+
 // --- Storage ---
 
 const MAX_HISTORY = 50;

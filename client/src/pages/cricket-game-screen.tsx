@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Undo2, ChevronRight, X, Home } from "lucide-react";
+import { Undo2, ChevronRight, X, Home, Settings } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
@@ -16,6 +16,7 @@ import {
 } from "@/lib/game-logic";
 import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
+import GameSettingsSheet from "@/components/game-settings-sheet";
 
 interface CricketGameScreenProps {
   game: CricketGame;
@@ -31,6 +32,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const lastDartTime = useRef(0);
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
@@ -216,7 +218,20 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           <Home className="w-4 h-4" />
         </Button>
         <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">Cricket</span>
-        <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
+        <div className="flex items-center gap-1">
+          {game.status !== 'completed' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-muted-foreground"
+              onClick={() => setShowSettings(true)}
+              data-testid="button-game-settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          )}
+          <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
+        </div>
       </div>
 
       <div className="flex border-b border-border flex-shrink-0">
@@ -608,6 +623,13 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GameSettingsSheet
+        game={game}
+        onGameUpdate={(g) => onGameUpdate(g as CricketGame)}
+        open={showSettings}
+        onOpenChange={setShowSettings}
+      />
     </div>
   );
 }

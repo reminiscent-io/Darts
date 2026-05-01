@@ -336,3 +336,7 @@ export function getCurrentTurnTotal(game: X01Game): number {
     .filter(d => !d.isBust)
     .reduce((sum, d) => sum + d.pointsScored, 0);
 }
+
+export function setDoubleOut(game: X01Game, doubleOut: boolean): X01Game {
+  return { ...game, doubleOut };
+}
