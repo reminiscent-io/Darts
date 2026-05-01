@@ -15,6 +15,7 @@ import {
   saveGame, clearSavedGame, confirmWin, getCricketPlayerStats
 } from "@/lib/game-logic";
 import ShareButton from "@/components/share-button";
+import LongPressScoreButton from "@/components/long-press-score-button";
 
 interface CricketGameScreenProps {
   game: CricketGame;
@@ -402,46 +403,48 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           >
             Miss
           </Button>
-          <Button
-            data-testid="button-single-bull"
-            variant="secondary"
-            size="sm"
-            className={`flex-1 text-xs transition-all duration-150 ${
-              tappedNumber === 'SB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-            }`}
-            disabled={isInputDisabled || dartsThrown >= 3}
-            onClick={() => handleBull(false)}
-          >
-            SB
-          </Button>
-          <Button
-            data-testid="button-double-bull"
-            variant="secondary"
-            size="sm"
-            className={`flex-1 text-xs transition-all duration-150 ${
-              tappedNumber === 'DB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-            }`}
-            disabled={isInputDisabled || dartsThrown >= 3}
-            onClick={() => handleBull(true)}
-          >
-            DB
-          </Button>
+          <div className="flex-1">
+            <LongPressScoreButton
+              label="SB"
+              multipliers={[1, 2]}
+              highlighted={tappedNumber === 'SB'}
+              disabled={isInputDisabled || dartsThrown >= 3}
+              onTap={() => handleBull(false)}
+              onLongSelect={(m) => handleBull(m === 2)}
+              className="text-xs"
+              testId="button-single-bull"
+            />
+          </div>
+          <div className="flex-1">
+            <LongPressScoreButton
+              label="DB"
+              multipliers={[1, 2]}
+              highlighted={tappedNumber === 'DB'}
+              disabled={isInputDisabled || dartsThrown >= 3}
+              onTap={() => handleBull(true)}
+              onLongSelect={(m) => handleBull(m === 2)}
+              className="text-xs"
+              testId="button-double-bull"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-6 gap-1.5">
           {([20, 19, 18, 17, 16, 15] as CricketNumber[]).map((num) => (
-            <Button
+            <LongPressScoreButton
               key={num}
-              data-testid={`button-number-${num}`}
-              variant="secondary"
-              className={`font-mono text-base font-bold py-3 transition-all duration-150 ${
-                tappedNumber === String(num) ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-              }`}
+              label={num}
+              highlighted={tappedNumber === String(num)}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onClick={() => handleNumberTap(num)}
-            >
-              {num}
-            </Button>
+              onTap={() => handleNumberTap(num)}
+              onLongSelect={(m) => {
+                setTappedNumber(String(num));
+                setTimeout(() => setTappedNumber(null), 200);
+                handleDartEntry(num, m);
+              }}
+              className="font-mono text-base font-bold py-3"
+              testId={`button-number-${num}`}
+            />
           ))}
         </div>
 
@@ -458,7 +461,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
-              {m === 1 ? 'SINGLE' : m === 2 ? 'DOUBLE' : 'TRIPLE'}
+              {m}x
             </Button>
           ))}
         </div>

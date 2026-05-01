@@ -15,6 +15,7 @@ import {
   getX01PlayerStats, getCurrentTurnTotal
 } from "@/lib/x01-game-logic";
 import ShareButton from "@/components/share-button";
+import LongPressScoreButton from "@/components/long-press-score-button";
 
 interface X01GameScreenProps {
   game: X01Game;
@@ -374,45 +375,49 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           >
             Miss
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`flex-1 text-xs transition-all duration-150 ${
-              tappedNumber === 'SB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-            }`}
-            disabled={isInputDisabled || dartsThrown >= 3}
-            onClick={() => handleBull(false)}
-          >
-            SB
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className={`flex-1 text-xs transition-all duration-150 ${
-              tappedNumber === 'DB' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-            }`}
-            disabled={isInputDisabled || dartsThrown >= 3}
-            onClick={() => handleBull(true)}
-          >
-            DB
-          </Button>
+          <div className="flex-1">
+            <LongPressScoreButton
+              label="SB"
+              multipliers={[1, 2]}
+              highlighted={tappedNumber === 'SB'}
+              disabled={isInputDisabled || dartsThrown >= 3}
+              onTap={() => handleBull(false)}
+              onLongSelect={(m) => handleBull(m === 2)}
+              className="text-xs"
+              testId="button-single-bull"
+            />
+          </div>
+          <div className="flex-1">
+            <LongPressScoreButton
+              label="DB"
+              multipliers={[1, 2]}
+              highlighted={tappedNumber === 'DB'}
+              disabled={isInputDisabled || dartsThrown >= 3}
+              onTap={() => handleBull(true)}
+              onLongSelect={(m) => handleBull(m === 2)}
+              className="text-xs"
+              testId="button-double-bull"
+            />
+          </div>
         </div>
 
         {/* Number pad: 4x5 grid */}
         <div className="grid grid-cols-5 gap-1">
           {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-            <Button
+            <LongPressScoreButton
               key={num}
-              variant="secondary"
-              size="sm"
-              className={`font-mono text-sm font-bold py-2.5 transition-all duration-150 ${
-                tappedNumber === String(num) ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
-              }`}
+              label={num}
+              highlighted={tappedNumber === String(num)}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onClick={() => handleNumberTap(num)}
-            >
-              {num}
-            </Button>
+              onTap={() => handleNumberTap(num)}
+              onLongSelect={(m) => {
+                setTappedNumber(String(num));
+                setTimeout(() => setTappedNumber(null), 200);
+                handleDartEntry(num, m);
+              }}
+              className="font-mono text-sm font-bold py-2.5"
+              testId={`button-number-${num}`}
+            />
           ))}
         </div>
 
@@ -429,7 +434,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
-              {m === 1 ? 'SINGLE' : m === 2 ? 'DOUBLE' : 'TRIPLE'}
+              {m}x
             </Button>
           ))}
         </div>
