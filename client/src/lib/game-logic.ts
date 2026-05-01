@@ -347,6 +347,13 @@ export function confirmWin(game: Game, teamId: string): Game {
   } as Game;
 }
 
+export function renameTeam(game: Game, teamId: string, name: string): Game {
+  const newTeams = game.teams.map(t =>
+    t.id === teamId ? { ...t, name } : t
+  );
+  return { ...game, teams: newTeams } as Game;
+}
+
 // --- Storage ---
 
 const MAX_HISTORY = 50;
