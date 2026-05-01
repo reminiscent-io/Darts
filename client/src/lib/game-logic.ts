@@ -354,6 +354,24 @@ export function renameTeam(game: Game, teamId: string, name: string): Game {
   return { ...game, teams: newTeams } as Game;
 }
 
+export function renamePlayer(game: Game, playerId: string, name: string): Game {
+  const newTeams = game.teams.map(t => {
+    const playerIdx = t.players.findIndex(p => p.id === playerId);
+    if (playerIdx === -1) return t;
+    const newPlayers = t.players.map((p, i) =>
+      i === playerIdx ? { ...p, name } : p
+    );
+    // Solo cricket convention: team.name mirrors the single player's name.
+    const isSoloTeam = t.players.length === 1 && t.name === t.players[0].name;
+    return {
+      ...t,
+      players: newPlayers,
+      ...(isSoloTeam ? { name } : {}),
+    };
+  });
+  return { ...game, teams: newTeams } as Game;
+}
+
 // --- Storage ---
 
 const MAX_HISTORY = 50;
