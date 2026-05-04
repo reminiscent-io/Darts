@@ -139,9 +139,24 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
     onStartGame(config);
   };
 
+  let startLabel: string;
+  if (gameType === 'cricket') {
+    startLabel = isCricketSolo ? 'Solo Cricket' : 'Cricket';
+  } else {
+    startLabel = String(startingScore);
+  }
+
+  const gameTypeOptions = [
+    { kind: 'cricket' as GameType, label: 'CRICKET', score: undefined as number | undefined },
+    { kind: 'x01' as GameType, label: '501', score: 501 },
+    { kind: 'x01' as GameType, label: '301', score: 301 },
+  ];
+  const isGameTypeActive = (opt: typeof gameTypeOptions[number]) =>
+    gameType === opt.kind && (opt.kind === 'cricket' || startingScore === opt.score);
+
   return (
     <div className="h-full flex flex-col overflow-y-auto">
-      <div className="flex items-center gap-2 p-3 border-b border-border">
+      <div className="flex items-center gap-3 px-3 pt-3 pb-1">
         <Button
           data-testid="button-setup-back"
           variant="ghost"
@@ -150,129 +165,149 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h2 className="text-lg font-semibold">Game Setup</h2>
+        <h2 className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
+          Game Setup
+        </h2>
       </div>
 
-      <div className="flex-1 px-4 py-4 space-y-5">
-        {/* Game Type Selector */}
-        <motion.div
+      <div className="flex-1 px-4 pt-3 pb-6 space-y-7">
+        {/* Game Type — anchor of the screen */}
+        <motion.section
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
+          className="space-y-2.5"
         >
-          <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-2">
+          <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
             Game Type
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {([
-              { type: 'cricket' as GameType, label: 'Cricket' },
-              { type: 'x01' as GameType, label: '501', score: 501 },
-              { type: 'x01' as GameType, label: '301', score: 301 },
-            ]).map((opt) => (
-              <Button
-                key={opt.label}
-                variant={gameType === opt.type && (opt.type === 'cricket' || startingScore === opt.score) ? 'default' : 'secondary'}
-                size="sm"
-                className="text-sm font-semibold"
-                onClick={() => {
-                  setGameType(opt.type);
-                  if (opt.score) setStartingScore(opt.score);
-                }}
-              >
-                {opt.label}
-              </Button>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {gameTypeOptions.map((opt) => {
+              const active = isGameTypeActive(opt);
+              return (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => {
+                    setGameType(opt.kind);
+                    if (opt.score) setStartingScore(opt.score);
+                  }}
+                  className={`relative h-[76px] rounded-md border transition-colors hover-elevate active-elevate-2 flex items-center justify-center ${
+                    active
+                      ? 'bg-accent border-primary/50'
+                      : 'bg-card/40 border-border'
+                  }`}
+                >
+                  <span
+                    className={`font-mono font-bold leading-none ${
+                      opt.kind === 'cricket'
+                        ? 'text-[15px] tracking-[0.22em]'
+                        : 'text-[34px] tracking-tight'
+                    } ${active ? 'text-primary' : 'text-foreground'}`}
+                  >
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </motion.div>
+        </motion.section>
 
-        {/* Cricket Options */}
-        <AnimatePresence>
+        {/* Mode — segmented sub-toggle, visually subordinate */}
+        <AnimatePresence initial={false}>
           {gameType === 'cricket' && (
-            <motion.div
+            <motion.section
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-2">
-                Mode
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
+                  Mode
+                </div>
+                <div className="grid grid-cols-2 rounded-md border border-border bg-card/40 p-1 gap-1">
+                  {([
+                    { value: 'team', label: 'Teams', testId: 'button-cricket-mode-team' },
+                    { value: 'solo', label: 'Solo', testId: 'button-cricket-mode-solo' },
+                  ] as const).map((opt) => {
+                    const active = cricketMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        data-testid={opt.testId}
+                        type="button"
+                        onClick={() => setCricketMode(opt.value)}
+                        className={`relative rounded-sm py-1.5 text-xs font-medium transition-colors hover-elevate active-elevate-2 ${
+                          active
+                            ? 'bg-primary/15 text-primary'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <Button
-                  data-testid="button-cricket-mode-team"
-                  variant={cricketMode === 'team' ? 'default' : 'secondary'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setCricketMode('team')}
-                >
-                  Teams
-                </Button>
-                <Button
-                  data-testid="button-cricket-mode-solo"
-                  variant={cricketMode === 'solo' ? 'default' : 'secondary'}
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => setCricketMode('solo')}
-                >
-                  Solo
-                </Button>
-              </div>
-            </motion.div>
+            </motion.section>
           )}
         </AnimatePresence>
 
-        {/* X01 Options */}
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {gameType === 'x01' && (
-            <motion.div
+            <motion.section
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden space-y-3"
+              className="overflow-hidden"
             >
-              {/* Mode: Teams vs Individual */}
-              <div>
-                <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase mb-2">
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
                   Mode
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Button
-                    variant={x01Mode === 'team' ? 'default' : 'secondary'}
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setX01Mode('team')}
+                <div className="grid grid-cols-2 rounded-md border border-border bg-card/40 p-1 gap-1">
+                  {([
+                    { value: 'team', label: 'Teams' },
+                    { value: 'individual', label: 'Individual' },
+                  ] as const).map((opt) => {
+                    const active = x01Mode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setX01Mode(opt.value)}
+                        className={`relative rounded-sm py-1.5 text-xs font-medium transition-colors hover-elevate active-elevate-2 ${
+                          active
+                            ? 'bg-primary/15 text-primary'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Double Out — quiet divider row, not a surface */}
+                <div className="flex items-center justify-between pt-3 mt-1 border-t border-border/40">
+                  <span className="text-sm text-muted-foreground">Double Out</span>
+                  <button
+                    type="button"
+                    onClick={() => setDoubleOut(!doubleOut)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      doubleOut ? 'bg-primary' : 'bg-muted-foreground/30'
+                    }`}
                   >
-                    Teams
-                  </Button>
-                  <Button
-                    variant={x01Mode === 'individual' ? 'default' : 'secondary'}
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setX01Mode('individual')}
-                  >
-                    Individual
-                  </Button>
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      doubleOut ? 'translate-x-5' : 'translate-x-0.5'
+                    }`} />
+                  </button>
                 </div>
               </div>
-
-              {/* Double Out Toggle */}
-              <div className="flex items-center justify-between bg-muted/30 rounded-md px-3 py-2.5">
-                <span className="text-sm text-muted-foreground">Double Out</span>
-                <button
-                  type="button"
-                  onClick={() => setDoubleOut(!doubleOut)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                    doubleOut ? 'bg-primary' : 'bg-muted-foreground/30'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                    doubleOut ? 'translate-x-5' : 'translate-x-0.5'
-                  }`} />
-                </button>
-              </div>
-            </motion.div>
+            </motion.section>
           )}
         </AnimatePresence>
 
@@ -286,7 +321,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
+              <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
                 Player
               </div>
               <PlayerNameInput
@@ -370,43 +405,50 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                 );
               })}
 
-              {/* Goes First */}
-              <motion.div
+              {/* Goes First — own labeled section */}
+              <motion.section
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="pt-2"
+                className="space-y-2.5 pt-2"
               >
-                <div className="flex items-center justify-between bg-muted/30 rounded-md px-3 py-3">
-                  <span className="text-sm text-muted-foreground">Goes first:</span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant={firstTeam === 0 ? 'default' : 'ghost'}
-                      onClick={() => setFirstTeam(0)}
-                      className="text-xs"
-                    >
-                      {team1Name || 'Team 1'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={firstTeam === 1 ? 'default' : 'ghost'}
-                      onClick={() => setFirstTeam(1)}
-                      className="text-xs"
-                    >
-                      {team2Name || 'Team 2'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleCoinFlip}
-                      className="text-muted-foreground"
-                    >
-                      <Shuffle className="w-4 h-4" />
-                    </Button>
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
+                    Goes First
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCoinFlip}
+                    className="text-muted-foreground gap-1.5 -mr-2 h-7 text-[11px] tracking-wider uppercase"
+                  >
+                    <Shuffle className="w-3 h-3" />
+                    Coin flip
+                  </Button>
                 </div>
-              </motion.div>
+                <div className="grid grid-cols-2 rounded-md border border-border bg-card/40 p-1 gap-1">
+                  {[0, 1].map((idx) => {
+                    const active = firstTeam === idx;
+                    const name = idx === 0 ? (team1Name || 'Team 1') : (team2Name || 'Team 2');
+                    const dotColor = idx === 0 ? 'bg-primary' : 'bg-chart-2';
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setFirstTeam(idx)}
+                        className={`relative rounded-sm py-2 text-xs font-medium transition-colors hover-elevate active-elevate-2 flex items-center justify-center gap-2 ${
+                          active
+                            ? 'bg-primary/15 text-primary'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${active ? '' : 'opacity-60'}`} />
+                        <span className="truncate max-w-[10ch]">{name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.section>
             </motion.div>
           ) : (
             <motion.div
@@ -416,7 +458,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
               exit={{ opacity: 0 }}
               className="space-y-3"
             >
-              <div className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
+              <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
                 Players
               </div>
               <div className="space-y-2">
@@ -474,7 +516,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
           onClick={handleStart}
         >
           <Play className="w-4 h-4" />
-          Start {gameType === 'cricket' ? (isCricketSolo ? 'Solo Cricket' : 'Cricket') : startingScore} Game
+          Start {startLabel}
         </Button>
       </div>
     </div>
