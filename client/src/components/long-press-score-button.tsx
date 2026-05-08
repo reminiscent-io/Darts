@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -27,9 +27,33 @@ export default function LongPressScoreButton({
   testId,
 }: LongPressScoreButtonProps) {
   const [open, setOpen] = useState(false);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const openPopup = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const popupWidth = multipliers.length * 44 + (multipliers.length - 1) * 4 + 8;
+      const centeredLeft = rect.left + rect.width / 2 - popupWidth / 2;
+      const screenWidth = window.innerWidth;
+      const margin = 8;
+
+      let translateX = "-50%";
+      if (centeredLeft < margin) {
+        const correction = margin - centeredLeft;
+        translateX = `calc(-50% + ${correction}px)`;
+      } else if (centeredLeft + popupWidth > screenWidth - margin) {
+        const correction = centeredLeft + popupWidth - (screenWidth - margin);
+        translateX = `calc(-50% - ${correction}px)`;
+      }
+
+      setPopupStyle({ transform: `translateX(${translateX})` });
+    }
+    setOpen(true);
+  }, [multipliers.length]);
 
   const handlers = useLongPress(
-    () => setOpen(true),
+    openPopup,
     () => onTap(),
     { disabled }
   );
@@ -40,7 +64,7 @@ export default function LongPressScoreButton({
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <Button
         {...handlers}
         variant="secondary"
@@ -69,7 +93,8 @@ export default function LongPressScoreButton({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6, scale: 0.92 }}
               transition={{ duration: 0.12 }}
-              className="absolute z-50 bottom-full mb-2 left-1/2 -translate-x-1/2 flex gap-1 bg-popover border border-border rounded-md p-1 shadow-lg"
+              className="absolute z-50 bottom-full mb-2 left-1/2 flex gap-1 bg-popover border border-border rounded-md p-1 shadow-lg"
+              style={popupStyle}
               role="menu"
             >
               {multipliers.map((m) => (
