@@ -252,7 +252,7 @@ function MainApp() {
 
         {screen === 'game' && game && (
           <motion.div
-            key="game"
+            key={`game-${game.id}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
