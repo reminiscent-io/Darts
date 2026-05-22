@@ -28,7 +28,6 @@ interface X01GameScreenProps {
 
 export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: X01GameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
-  const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [bustFlash, setBustFlash] = useState(false);
@@ -37,9 +36,14 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
-  const currentTeam = game.teams[currentTeamIndex];
   const dartsThrown = game.currentTurnDarts.length;
   const roundTotal = getCurrentTurnTotal(game);
+
+  const pendingWin = useMemo(() => {
+    if (game.status !== 'in_progress') return null;
+    const team = game.teams.find(t => t.remainingScore === 0);
+    return team ? { teamId: team.id, teamName: team.name } : null;
+  }, [game]);
 
   const upcomingPlayers = useMemo(() => {
     const orderLen = game.turnOrder.length;
@@ -77,12 +81,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       return;
     }
 
-    if (result.isWin) {
-      setPendingWin({ teamId: currentTeam.id, teamName: currentTeam.name });
-    }
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, currentTeam, onGameUpdate]);
+  }, [game, dartsThrown, onGameUpdate]);
 
   const handleNumberTap = (num: number) => {
     setTappedNumber(String(num));
@@ -114,14 +115,12 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
     }
 
     const result = undoLastX01Dart(game);
-    setPendingWin(null);
     onGameUpdate(result.game);
     saveGame(result.game);
   };
 
   const handleConfirmUndo = () => {
     const result = undoLastX01Dart(game);
-    setPendingWin(null);
     setShowUndoConfirm(false);
     onGameUpdate(result.game);
     saveGame(result.game);
@@ -129,7 +128,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
 
   const handleRemoveDart = (index: number) => {
     const updated = removeX01DartAtIndex(game, index);
-    setPendingWin(null);
     onGameUpdate(updated);
     saveGame(updated);
   };
@@ -150,7 +148,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   };
 
   const handleCancelWin = () => {
-    setPendingWin(null);
+    const result = undoLastX01Dart(game);
+    onGameUpdate(result.game);
+    saveGame(result.game);
   };
 
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
