@@ -12,7 +12,8 @@ import {
 import {
   getCurrentPlayer, recordCricketDart, advanceTurn, undoLastCricketDart,
   removeCricketDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
-  saveGame, clearSavedGame, confirmWin, getCricketPlayerStats
+  saveGame, clearSavedGame, confirmWin, getCricketPlayerStats,
+  checkCricketWinCondition
 } from "@/lib/game-logic";
 import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
@@ -28,7 +29,6 @@ interface CricketGameScreenProps {
 
 export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
-  const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -37,9 +37,18 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
-  const currentTeam = game.teams[currentTeamIndex];
   const dartsThrown = game.currentTurnDarts.length;
   const isSolo = game.mode === 'solo';
+
+  const pendingWin = useMemo(() => {
+    if (game.status !== 'in_progress') return null;
+    for (let i = 0; i < game.teams.length; i++) {
+      if (checkCricketWinCondition(game, i)) {
+        return { teamId: game.teams[i].id, teamName: game.teams[i].name };
+      }
+    }
+    return null;
+  }, [game]);
 
   const upcomingPlayers = useMemo(() => {
     const orderLen = game.turnOrder.length;
@@ -68,12 +77,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
     const result = recordCricketDart(game, target, mult);
     setMultiplier(1);
 
-    if (result.isWin) {
-      setPendingWin({ teamId: currentTeam.id, teamName: currentTeam.name });
-    }
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, currentTeam, onGameUpdate]);
+  }, [game, dartsThrown, onGameUpdate]);
 
   const handleNumberTap = (num: CricketNumber) => {
     setTappedNumber(String(num));
@@ -105,14 +111,12 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
     }
 
     const result = undoLastCricketDart(game);
-    setPendingWin(null);
     onGameUpdate(result.game);
     saveGame(result.game);
   };
 
   const handleConfirmUndo = () => {
     const result = undoLastCricketDart(game);
-    setPendingWin(null);
     setShowUndoConfirm(false);
     onGameUpdate(result.game);
     saveGame(result.game);
@@ -120,7 +124,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
 
   const handleRemoveDart = (index: number) => {
     const updated = removeCricketDartAtIndex(game, index);
-    setPendingWin(null);
     onGameUpdate(updated);
     saveGame(updated);
   };
@@ -141,7 +144,9 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   };
 
   const handleCancelWin = () => {
-    setPendingWin(null);
+    const result = undoLastCricketDart(game);
+    onGameUpdate(result.game);
+    saveGame(result.game);
   };
 
   const handleLeave = () => {
