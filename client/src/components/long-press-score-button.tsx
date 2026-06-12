@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils";
 interface LongPressScoreButtonProps {
   label: ReactNode;
   multipliers?: Multiplier[];
-  onTap: () => void;
-  onLongSelect: (multiplier: Multiplier) => void;
+  // Callbacks receive the trigger's viewport center so callers can anchor
+  // effects (e.g. the score burst) to the tapped button.
+  onTap: (origin?: { x: number; y: number }) => void;
+  onLongSelect: (multiplier: Multiplier, origin?: { x: number; y: number }) => void;
   highlighted?: boolean;
   disabled?: boolean;
   className?: string;
@@ -34,9 +36,14 @@ export default function LongPressScoreButton({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const tapOrigin = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined;
+  };
+
   const handlers = useLongPress(
     () => setOpen(true),
-    () => onTap(),
+    () => onTap(tapOrigin()),
     { disabled }
   );
 
@@ -65,7 +72,7 @@ export default function LongPressScoreButton({
 
   const handleSelect = (m: Multiplier) => {
     closeMenu(true);
-    onLongSelect(m);
+    onLongSelect(m, tapOrigin());
   };
 
   const handleMenuKeyDown = (e: React.KeyboardEvent) => {

@@ -43,6 +43,15 @@ export const TEAM_CHART_COLORS = [
   "hsl(var(--chart-5))",
 ];
 
+// Raw custom-property names for canvas drawing, where hsl(var()) can't resolve.
+export const TEAM_COLOR_VARS = [
+  "--chart-1",
+  "--chart-2",
+  "--chart-4",
+  "--chart-3",
+  "--chart-5",
+];
+
 export function teamColorAt<T>(palette: T[], index: number): T {
   return palette[index % palette.length];
 }

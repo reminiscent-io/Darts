@@ -18,6 +18,8 @@ import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
 import ConfirmDialog from "@/components/confirm-dialog";
+import { confettiPop } from "@/lib/confetti";
+import { TEAM_COLOR_VARS, teamColorAt } from "@/lib/team-colors";
 
 interface CricketGameScreenProps {
   game: CricketGame;
@@ -59,7 +61,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
     return result;
   }, [game]);
 
-  const handleDartEntry = useCallback((target: CricketNumber | 'miss', mult: Multiplier) => {
+  const handleDartEntry = useCallback((target: CricketNumber | 'miss', mult: Multiplier, origin?: { x: number; y: number }) => {
     const now = Date.now();
     if (now - lastDartTime.current < 250) return;
     if (dartsThrown >= 3) return;
@@ -71,21 +73,32 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
 
     if (result.isWin) {
       setPendingWin({ teamId: currentTeam.id, teamName: currentTeam.name });
+    } else {
+      // Triples and bulls get a pop, but only when the dart counted —
+      // a triple on a dead number gets the pub groan, not the cheer.
+      const counted = (result.dart.marksApplied ?? 0) > 0 || result.dart.pointsScored > 0;
+      if (counted && (mult === 3 || target === 'B')) {
+        confettiPop({
+          origin,
+          teamColorVar: teamColorAt(TEAM_COLOR_VARS, currentTeamIndex),
+          big: target === 'B' && mult === 2,
+        });
+      }
     }
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, currentTeam, onGameUpdate]);
+  }, [game, dartsThrown, currentTeam, currentTeamIndex, onGameUpdate]);
 
-  const handleNumberTap = (num: CricketNumber) => {
+  const handleNumberTap = (num: CricketNumber, origin?: { x: number; y: number }) => {
     setTappedNumber(String(num));
     setTimeout(() => setTappedNumber(null), 200);
-    handleDartEntry(num, multiplier);
+    handleDartEntry(num, multiplier, origin);
   };
 
-  const handleBull = (double: boolean) => {
+  const handleBull = (double: boolean, origin?: { x: number; y: number }) => {
     setTappedNumber(double ? 'DB' : 'SB');
     setTimeout(() => setTappedNumber(null), 200);
-    handleDartEntry('B', double ? 2 : 1);
+    handleDartEntry('B', double ? 2 : 1, origin);
   };
 
   const handleMiss = () => {
@@ -434,8 +447,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               multipliers={[1, 2]}
               highlighted={tappedNumber === 'SB'}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleBull(false)}
-              onLongSelect={(m) => handleBull(m === 2)}
+              onTap={(origin) => handleBull(false, origin)}
+              onLongSelect={(m, origin) => handleBull(m === 2, origin)}
               className="min-h-10 text-xs"
               testId="button-single-bull"
             />
@@ -446,8 +459,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               multipliers={[1, 2]}
               highlighted={tappedNumber === 'DB'}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleBull(true)}
-              onLongSelect={(m) => handleBull(m === 2)}
+              onTap={(origin) => handleBull(true, origin)}
+              onLongSelect={(m, origin) => handleBull(m === 2, origin)}
               className="min-h-10 text-xs"
               testId="button-double-bull"
             />
@@ -461,11 +474,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               label={num}
               highlighted={tappedNumber === String(num)}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleNumberTap(num)}
-              onLongSelect={(m) => {
+              onTap={(origin) => handleNumberTap(num, origin)}
+              onLongSelect={(m, origin) => {
                 setTappedNumber(String(num));
                 setTimeout(() => setTappedNumber(null), 200);
-                handleDartEntry(num, m);
+                handleDartEntry(num, m, origin);
               }}
               className="font-mono text-base font-bold py-3"
               testId={`button-number-${num}`}
