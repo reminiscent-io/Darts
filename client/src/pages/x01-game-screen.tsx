@@ -34,7 +34,6 @@ interface X01GameScreenProps {
 
 export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: X01GameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
-  const [pendingWin, setPendingWin] = useState<{ teamId: string; teamName: string } | null>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [bustFlash, setBustFlash] = useState(false);
@@ -43,9 +42,14 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
-  const currentTeam = game.teams[currentTeamIndex];
   const dartsThrown = game.currentTurnDarts.length;
   const roundTotal = getCurrentTurnTotal(game);
+
+  const pendingWin = useMemo(() => {
+    if (game.status !== 'in_progress') return null;
+    const team = game.teams.find(t => t.remainingScore === 0);
+    return team ? { teamId: team.id, teamName: team.name } : null;
+  }, [game]);
 
   const upcomingPlayers = useMemo(() => {
     const orderLen = game.turnOrder.length;
@@ -83,10 +87,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       return;
     }
 
-    if (result.isWin) {
-      setPendingWin({ teamId: currentTeam.id, teamName: currentTeam.name });
-    } else if (mult === 3 || target === 'B') {
-      // Triples and bulls get a pop; the win itself stays quiet here
+    if (!result.isWin && (mult === 3 || target === 'B')) {
+      // Triples and bulls get a pop; the winning dart stays quiet here
       // because the post-game screen owns the big celebration.
       confettiPop({
         origin,
@@ -96,7 +98,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
     }
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, currentTeam, currentTeamIndex, onGameUpdate]);
+  }, [game, dartsThrown, currentTeamIndex, onGameUpdate]);
 
   const handleNumberTap = (num: number, origin?: { x: number; y: number }) => {
     setTappedNumber(String(num));
@@ -128,14 +130,12 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
     }
 
     const result = undoLastX01Dart(game);
-    setPendingWin(null);
     onGameUpdate(result.game);
     saveGame(result.game);
   };
 
   const handleConfirmUndo = () => {
     const result = undoLastX01Dart(game);
-    setPendingWin(null);
     setShowUndoConfirm(false);
     onGameUpdate(result.game);
     saveGame(result.game);
@@ -143,7 +143,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
 
   const handleRemoveDart = (index: number) => {
     const updated = removeX01DartAtIndex(game, index);
-    setPendingWin(null);
     onGameUpdate(updated);
     saveGame(updated);
   };
@@ -164,7 +163,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   };
 
   const handleCancelWin = () => {
-    setPendingWin(null);
+    const result = undoLastX01Dart(game);
+    onGameUpdate(result.game);
+    saveGame(result.game);
   };
 
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
@@ -310,7 +311,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
 
       <div aria-live="polite" className="sr-only">
         {dartsThrown > 0
-          ? `${formatDart(game.currentTurnDarts[dartsThrown - 1])}, ${currentTeam.remainingScore} remaining`
+          ? `${formatDart(game.currentTurnDarts[dartsThrown - 1])}, ${game.teams[currentTeamIndex].remainingScore} remaining`
           : `${currentPlayer.name} to throw`}
       </div>
 
