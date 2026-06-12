@@ -155,12 +155,13 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
     gameType === opt.kind && (opt.kind === 'cricket' || startingScore === opt.score);
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto">
-      <div className="flex items-center gap-3 px-3 pt-3 pb-1">
+    <main className="h-full flex flex-col overflow-y-auto">
+      <header className="flex items-center gap-3 px-3 pt-3 pb-1">
         <Button
           data-testid="button-setup-back"
           variant="ghost"
           size="icon"
+          aria-label="Back to home"
           onClick={onBack}
         >
           <ArrowLeft className="w-5 h-5" />
@@ -168,7 +169,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
         <h2 className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
           Game Setup
         </h2>
-      </div>
+      </header>
 
       <div className="flex-1 px-4 pt-3 pb-6 space-y-7">
         {/* Game Type — anchor of the screen */}
@@ -192,7 +193,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                     setGameType(opt.kind);
                     if (opt.score) setStartingScore(opt.score);
                   }}
-                  className={`relative h-[76px] rounded-md border transition-colors hover-elevate active-elevate-2 flex items-center justify-center ${
+                  className={`relative min-h-[76px] rounded-md border transition-colors hover-elevate active-elevate-2 flex items-center justify-center ${
                     active
                       ? 'bg-accent border-primary/50'
                       : 'bg-card/40 border-border'
@@ -217,11 +218,10 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
         <AnimatePresence initial={false}>
           {gameType === 'cricket' && (
             <motion.section
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
             >
               <div className="space-y-2.5">
                 <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
@@ -258,11 +258,10 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
         <AnimatePresence initial={false}>
           {gameType === 'x01' && (
             <motion.section
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.15 }}
             >
               <div className="space-y-2.5">
                 <div className="text-[11px] font-medium text-muted-foreground tracking-[0.18em] uppercase">
@@ -296,12 +295,15 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                   <span className="text-sm text-muted-foreground">Double Out</span>
                   <button
                     type="button"
+                    role="switch"
+                    aria-checked={doubleOut}
+                    aria-label="Double out"
                     onClick={() => setDoubleOut(!doubleOut)}
                     className={`relative w-10 h-5 rounded-full transition-colors ${
                       doubleOut ? 'bg-primary' : 'bg-muted-foreground/30'
                     }`}
                   >
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-transform ${
                       doubleOut ? 'translate-x-5' : 'translate-x-0.5'
                     }`} />
                   </button>
@@ -363,8 +365,9 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                         data-testid={`input-team${teamNum}-name`}
                         type="text"
                         value={teamName}
+                        aria-label={`Team ${teamNum} name`}
                         onChange={(e) => setTeamName(e.target.value)}
-                        className={`bg-transparent border-none outline-none text-base font-semibold ${teamColor} w-full`}
+                        className={`bg-transparent border-none outline-none rounded-sm focus-visible:ring-1 focus-visible:ring-ring text-base font-semibold ${teamColor} w-full`}
                         placeholder={`Team ${teamNum}`}
                       />
                     </div>
@@ -384,6 +387,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                               variant="ghost"
                               size="icon"
                               className="shrink-0 text-muted-foreground"
+                              aria-label={`Remove player ${idx + 1} from team ${teamNum}`}
                               onClick={() => removeTeamPlayer(teamNum as 1 | 2, idx)}
                             >
                               <X className="w-4 h-4" />
@@ -443,7 +447,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                         }`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${dotColor} ${active ? '' : 'opacity-60'}`} />
-                        <span className="truncate max-w-[10ch]">{name}</span>
+                        <span className="truncate max-w-[14ch]">{name}</span>
                       </button>
                     );
                   })}
@@ -483,6 +487,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
                         variant="ghost"
                         size="icon"
                         className="shrink-0 text-muted-foreground"
+                        aria-label={`Remove player ${idx + 1}`}
                         onClick={() => removeIndividualPlayer(idx)}
                       >
                         <X className="w-4 h-4" />
@@ -507,7 +512,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
         </AnimatePresence>
       </div>
 
-      <div className="p-4 border-t border-border">
+      <footer className="p-4 border-t border-border">
         <Button
           data-testid="button-start-game"
           size="lg"
@@ -518,7 +523,7 @@ export default function SetupScreen({ onBack, onStartGame }: SetupScreenProps) {
           <Play className="w-4 h-4" />
           Start {startLabel}
         </Button>
-      </div>
-    </div>
+      </footer>
+    </main>
   );
 }

@@ -17,6 +17,7 @@ import {
 import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
+import ConfirmDialog from "@/components/confirm-dialog";
 
 interface CricketGameScreenProps {
   game: CricketGame;
@@ -207,12 +208,13 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   }, [game.dartHistory, game.currentTurnDarts, game.teams]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
-      <div className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
+    <main className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
+      <header className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
         <Button
           variant="ghost"
           size="icon"
-          className="w-8 h-8 text-muted-foreground"
+          className="text-muted-foreground"
+          aria-label="Leave game"
           onClick={() => setShowLeaveConfirm(true)}
         >
           <Home className="w-4 h-4" />
@@ -223,7 +225,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 text-muted-foreground"
+              className="text-muted-foreground"
+              aria-label="Game settings"
               onClick={() => setShowSettings(true)}
               data-testid="button-game-settings"
             >
@@ -232,7 +235,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           )}
           <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
         </div>
-      </div>
+      </header>
 
       <div className="flex border-b border-border flex-shrink-0">
         {/* Team 1 Points - Left */}
@@ -305,8 +308,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         )}
       </div>
 
-      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 border-l-4 transition-colors duration-300 ${
-        currentTeamIndex === 0 ? 'bg-primary/10 border-l-primary' : 'bg-chart-2/10 border-l-chart-2'
+      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 transition-colors duration-300 ${
+        currentTeamIndex === 0 ? 'bg-primary/10' : 'bg-chart-2/10'
       }`}>
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -326,6 +329,12 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             />
           ))}
         </div>
+      </div>
+
+      <div aria-live="polite" className="sr-only">
+        {dartsThrown > 0
+          ? `${formatDart(game.currentTurnDarts[dartsThrown - 1])}, dart ${dartsThrown} of 3`
+          : `${currentPlayer.name} to throw`}
       </div>
 
       <div className="flex items-center gap-3 px-3 py-1 border-b border-border overflow-x-auto" data-testid="player-queue">
@@ -355,7 +364,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
               onClick={() => handleRemoveDart(idx)}
-              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
+              aria-label={`Remove dart ${formatDart(dart)}`}
+              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
               data-testid={`button-dart-chip-${idx}`}
             >
               {formatDart(dart)}
@@ -404,13 +414,13 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         </div>
       </div>
 
-      <div className="shrink-0 flex flex-col px-2 pb-2 gap-1.5 pt-1.5" data-testid="input-area">
+      <footer className="shrink-0 flex flex-col px-2 pb-2 gap-1.5 pt-1.5" data-testid="input-area">
         <div className="flex gap-1.5">
           <Button
             data-testid="button-miss"
             variant="secondary"
             size="sm"
-            className={`flex-1 text-muted-foreground text-xs transition-all duration-150 ${
+            className={`flex-1 min-h-10 text-muted-foreground text-xs transition-all duration-150 ${
               tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
             }`}
             disabled={isInputDisabled || dartsThrown >= 3}
@@ -426,7 +436,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={() => handleBull(false)}
               onLongSelect={(m) => handleBull(m === 2)}
-              className="text-xs"
+              className="min-h-10 text-xs"
               testId="button-single-bull"
             />
           </div>
@@ -438,7 +448,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={() => handleBull(true)}
               onLongSelect={(m) => handleBull(m === 2)}
-              className="text-xs"
+              className="min-h-10 text-xs"
               testId="button-double-bull"
             />
           </div>
@@ -472,7 +482,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               onClick={() => setMultiplier(m)}
               variant={multiplier === m ? 'default' : 'secondary'}
               size="sm"
-              className={`text-xs font-semibold tracking-wide ${
+              className={`min-h-10 text-xs font-semibold tracking-wide ${
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
@@ -486,7 +496,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             data-testid="button-undo"
             variant="secondary"
             size="sm"
-            className="flex-1 gap-1 text-xs"
+            className="flex-1 min-h-10 gap-1 text-xs"
             disabled={game.dartHistory.length === 0 || isInputDisabled}
             onClick={handleUndo}
           >
@@ -496,7 +506,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           <Button
             data-testid="button-next-player"
             size="sm"
-            className="flex-[2] gap-1 text-xs"
+            className="flex-[2] min-h-10 gap-1 text-xs"
             disabled={dartsThrown === 0 || isInputDisabled}
             onClick={handleNextPlayer}
           >
@@ -504,125 +514,49 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             <ChevronRight className="w-3.5 h-3.5" />
           </Button>
         </div>
-      </div>
+      </footer>
 
-      <AnimatePresence>
-        {pendingWin && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-card rounded-md p-6 w-full max-w-xs text-center space-y-4 border border-card-border"
-            >
-              <div className="text-3xl font-bold font-mono text-primary">
-                {pendingWin.teamName} Wins!
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Confirm this result?
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  data-testid="button-cancel-win"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={handleCancelWin}
-                >
-                  Undo
-                </Button>
-                <Button
-                  data-testid="button-confirm-win"
-                  className="flex-1"
-                  onClick={handleConfirmWin}
-                >
-                  Confirm Win
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={pendingWin !== null}
+        title={
+          <span className="block text-3xl font-bold font-mono text-primary">
+            {pendingWin?.teamName} Wins!
+          </span>
+        }
+        description="Confirm this result?"
+        cancelLabel="Undo"
+        confirmLabel="Confirm Win"
+        onCancel={handleCancelWin}
+        onConfirm={handleConfirmWin}
+        cancelTestId="button-cancel-win"
+        confirmTestId="button-confirm-win"
+      />
 
-      <AnimatePresence>
-        {showUndoConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-card rounded-md p-5 w-full max-w-xs text-center space-y-4 border border-card-border"
-            >
-              <p className="text-sm text-foreground">
-                Undo <span className="font-semibold">{undoPrevPlayerName}</span>'s last dart?
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  data-testid="button-cancel-undo-confirm"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setShowUndoConfirm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  data-testid="button-confirm-undo"
-                  className="flex-1"
-                  onClick={handleConfirmUndo}
-                >
-                  Undo
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={showUndoConfirm}
+        title="Undo last dart?"
+        description={
+          <>
+            Removes <span className="font-semibold text-foreground">{undoPrevPlayerName}</span>'s last dart from the previous turn.
+          </>
+        }
+        cancelLabel="Cancel"
+        confirmLabel="Undo"
+        onCancel={() => setShowUndoConfirm(false)}
+        onConfirm={handleConfirmUndo}
+        cancelTestId="button-cancel-undo-confirm"
+        confirmTestId="button-confirm-undo"
+      />
 
-      <AnimatePresence>
-        {showLeaveConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-card rounded-md p-5 w-full max-w-xs text-center space-y-4 border border-card-border"
-            >
-              <p className="text-sm text-foreground">
-                Leave this game? Your progress is saved and you can resume later.
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setShowLeaveConfirm(false)}
-                >
-                  Stay
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleLeave}
-                >
-                  Leave
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title="Leave this game?"
+        description="Your progress is saved and you can resume later."
+        cancelLabel="Stay"
+        confirmLabel="Leave"
+        onCancel={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeave}
+      />
 
       <GameSettingsSheet
         game={game}
@@ -630,6 +564,6 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         open={showSettings}
         onOpenChange={setShowSettings}
       />
-    </div>
+    </main>
   );
 }

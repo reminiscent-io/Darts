@@ -48,19 +48,23 @@ export default function ShareButton({ gameId, playerCount, isConnected }: ShareB
     <div className="flex items-center gap-1">
       {playerCount > 1 && (
         <div className="flex items-center gap-0.5 text-muted-foreground">
-          <Users className="w-3 h-3" />
-          <span className="text-[10px] font-mono tabular-nums">{playerCount}</span>
+          <Users className="w-3 h-3" aria-hidden="true" />
+          <span className="text-[10px] font-mono tabular-nums">
+            {playerCount}
+            <span className="sr-only"> devices connected</span>
+          </span>
         </div>
       )}
       <Button
         variant="ghost"
         size="icon"
-        className="w-8 h-8 text-muted-foreground relative"
+        className="text-muted-foreground relative"
+        aria-label={isConnected ? "Share game link (live sync connected)" : "Share game link"}
         onClick={handleShare}
       >
         <Share2 className="w-4 h-4" />
         {isConnected && (
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-green-500 rounded-full" />
+          <span aria-hidden="true" className="absolute top-1 right-1 w-1.5 h-1.5 bg-chart-4 rounded-full" />
         )}
       </Button>
     </div>

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { RotateCcw, Home } from "lucide-react";
 import { X01Game, DartEntry } from "@/lib/types";
 import { getX01PlayerStats, formatX01Dart } from "@/lib/x01-game-logic";
+import { TEAM_TEXT_COLORS, teamColorAt } from "@/lib/team-colors";
 
 interface X01PostGameScreenProps {
   game: X01Game;
@@ -70,10 +71,9 @@ export default function X01PostGameScreen({ game, onRematch, onNewGame, onHome }
 
   const rankedPlayers = [...allPlayers].sort((a, b) => b.stats.ppd - a.stats.ppd);
 
-  const teamColors = ['text-primary', 'text-chart-2', 'text-chart-4', 'text-chart-3', 'text-chart-5'];
   const teamColorFor = (teamId: string) => {
     const idx = game.teams.findIndex(t => t.id === teamId);
-    return teamColors[idx % teamColors.length];
+    return teamColorAt(TEAM_TEXT_COLORS, idx);
   };
 
   const winnerName = isIndividual
