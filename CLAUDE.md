@@ -55,3 +55,9 @@ Requires `DATABASE_URL` environment variable.
 
 ### Real-time sync
 WebSocket messages defined in `shared/ws-types.ts`. The `use-game-sync` hook manages client-side connection. On game update, the originating client saves via REST API and broadcasts via WebSocket; receiving clients update local state + localStorage.
+
+## Design context
+
+- `PRODUCT.md` — brand voice, users, anti-references, strategic principles. Register: **product** (design serves the tool).
+- `DESIGN.md` — tokens, color strategy, typography hierarchy, motion vocabulary. Sourced from `client/src/index.css` + `tailwind.config.ts`.
+- Both feed the `/impeccable` skill but are useful for any design or UI work — read them before restyling components or post-game/setup/in-game screens.

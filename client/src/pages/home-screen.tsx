@@ -28,7 +28,7 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
   }, []);
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-6">
+    <main className="h-full flex flex-col items-center justify-center px-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -131,6 +131,6 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
           ))}
         </ol>
       </motion.div>
-    </div>
+    </main>
   );
 }

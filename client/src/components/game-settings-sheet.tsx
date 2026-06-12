@@ -41,9 +41,10 @@ function TeamNameInput({
       data-testid={`settings-team-name-${team.id}`}
       type="text"
       value={localValue}
+      aria-label="Team name"
       onChange={(e) => setLocalValue(e.target.value)}
       onBlur={() => onCommit(localValue)}
-      className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm font-semibold outline-none focus:border-primary/50"
+      className="w-full bg-muted/50 border border-border rounded-md px-3 py-2 text-sm font-semibold outline-none focus:border-primary/50 focus-visible:ring-1 focus-visible:ring-ring"
     />
   );
 }
@@ -177,6 +178,9 @@ export default function GameSettingsSheet({
                 <span className="text-sm text-muted-foreground">Double Out</span>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={(game as X01Game).doubleOut}
+                  aria-label="Double out"
                   data-testid="settings-double-out-toggle"
                   onClick={handleDoubleOutToggle}
                   className={`relative w-10 h-5 rounded-full transition-colors ${
@@ -184,7 +188,7 @@ export default function GameSettingsSheet({
                   }`}
                 >
                   <div
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-transform ${
                       (game as X01Game).doubleOut ? "translate-x-5" : "translate-x-0.5"
                     }`}
                   />
@@ -216,8 +220,8 @@ export default function GameSettingsSheet({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
                         disabled={idx === 0}
+                        aria-label={`Move ${playerNameByRef(ref)} earlier`}
                         onClick={() => moveUpcoming(idx, -1)}
                         data-testid={`settings-move-up-${idx}`}
                       >
@@ -226,8 +230,8 @@ export default function GameSettingsSheet({
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
                         disabled={idx === upcoming.length - 1}
+                        aria-label={`Move ${playerNameByRef(ref)} later`}
                         onClick={() => moveUpcoming(idx, 1)}
                         data-testid={`settings-move-down-${idx}`}
                       >

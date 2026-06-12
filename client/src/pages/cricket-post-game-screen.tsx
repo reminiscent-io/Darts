@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { RotateCcw, Home } from "lucide-react";
 import { CricketGame, CRICKET_NUMBERS } from "@/lib/types";
 import { getCricketPlayerStats, isNumberClosedByTeam } from "@/lib/game-logic";
+import { TEAM_TEXT_COLORS, teamColorAt } from "@/lib/team-colors";
 
 interface CricketPostGameScreenProps {
   game: CricketGame;
@@ -57,10 +58,9 @@ export default function CricketPostGameScreen({ game, onRematch, onNewGame, onHo
 
   const rankedPlayers = [...allPlayers].sort((a, b) => b.stats.mpr - a.stats.mpr);
 
-  const teamColors = ['text-primary', 'text-chart-2', 'text-chart-4', 'text-chart-3', 'text-chart-5'];
   const teamColorFor = (teamId: string) => {
     const idx = game.teams.findIndex(t => t.id === teamId);
-    return teamColors[idx % teamColors.length];
+    return teamColorAt(TEAM_TEXT_COLORS, idx);
   };
 
   const winnerName = winnerTeam?.name || "Winner";

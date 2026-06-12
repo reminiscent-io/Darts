@@ -14,6 +14,9 @@ interface LongPressHandlers {
   onPointerLeave: (e: React.PointerEvent) => void;
   onPointerCancel: (e: React.PointerEvent) => void;
   onContextMenu: (e: React.SyntheticEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onKeyUp: (e: React.KeyboardEvent) => void;
+  onBlur: () => void;
 }
 
 export function useLongPress(
@@ -34,22 +37,32 @@ export function useLongPress(
 
   useEffect(() => clear, [clear]);
 
+  const arm = useCallback(() => {
+    triggeredRef.current = false;
+    clear();
+    timerRef.current = window.setTimeout(() => {
+      triggeredRef.current = true;
+      timerRef.current = null;
+      if (vibrate && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate(15); } catch { /* ignore */ }
+      }
+      onLongPress();
+    }, threshold);
+  }, [clear, onLongPress, threshold, vibrate]);
+
+  const release = useCallback(() => {
+    const wasArmed = timerRef.current !== null;
+    clear();
+    if (wasArmed && !triggeredRef.current && !disabled) onTap();
+  }, [clear, disabled, onTap]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (disabled) return;
-      triggeredRef.current = false;
       startPosRef.current = { x: e.clientX, y: e.clientY };
-      clear();
-      timerRef.current = window.setTimeout(() => {
-        triggeredRef.current = true;
-        timerRef.current = null;
-        if (vibrate && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-          try { navigator.vibrate(15); } catch { /* ignore */ }
-        }
-        onLongPress();
-      }, threshold);
+      arm();
     },
-    [clear, disabled, onLongPress, threshold, vibrate]
+    [arm, disabled]
   );
 
   const handlePointerMove = useCallback(
@@ -62,12 +75,6 @@ export function useLongPress(
     [clear, moveThreshold]
   );
 
-  const handlePointerUp = useCallback(() => {
-    const wasArmed = timerRef.current !== null;
-    clear();
-    if (wasArmed && !triggeredRef.current && !disabled) onTap();
-  }, [clear, disabled, onTap]);
-
   const handlePointerCancel = useCallback(() => {
     clear();
   }, [clear]);
@@ -76,12 +83,38 @@ export function useLongPress(
     e.preventDefault();
   }, []);
 
+  // Keyboard mirror of the pointer gesture: quick Enter/Space = tap,
+  // held past the threshold = long-press. preventDefault stops the native
+  // click synthesis so the tap never double-fires.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      if (disabled || e.repeat || timerRef.current !== null) return;
+      startPosRef.current = null;
+      arm();
+    },
+    [arm, disabled]
+  );
+
+  const handleKeyUp = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      release();
+    },
+    [release]
+  );
+
   return {
     onPointerDown: handlePointerDown,
     onPointerMove: handlePointerMove,
-    onPointerUp: handlePointerUp,
+    onPointerUp: release,
     onPointerLeave: handlePointerCancel,
     onPointerCancel: handlePointerCancel,
     onContextMenu: handleContextMenu,
+    onKeyDown: handleKeyDown,
+    onKeyUp: handleKeyUp,
+    onBlur: handlePointerCancel,
   };
 }

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Undo2, ChevronRight, X, AlertTriangle, Home, Settings } from "lucide-react";
+import { Undo2, ChevronRight, X, AlertTriangle, Settings } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
@@ -17,6 +17,12 @@ import {
 import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
+import ConfirmDialog from "@/components/confirm-dialog";
+import { confettiPop } from "@/lib/confetti";
+import {
+  TEAM_TEXT_COLORS, TEAM_BG_COLORS, TEAM_HIGHLIGHT_CLASSES,
+  TEAM_ACTIVE_TURN_CLASSES, TEAM_CHART_COLORS, TEAM_COLOR_VARS, teamColorAt
+} from "@/lib/team-colors";
 
 interface X01GameScreenProps {
   game: X01Game;
@@ -63,7 +69,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
     return result;
   }, [game]);
 
-  const handleDartEntry = useCallback((target: number | 'B' | 'miss', mult: Multiplier) => {
+  const handleDartEntry = useCallback((target: number | 'B' | 'miss', mult: Multiplier, origin?: { x: number; y: number }) => {
     const now = Date.now();
     if (now - lastDartTime.current < 250) return;
     if (dartsThrown >= 3) return;
@@ -81,20 +87,29 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       return;
     }
 
+    if (!result.isWin && (mult === 3 || target === 'B')) {
+      // Triples and bulls get a pop; the winning dart stays quiet here
+      // because the post-game screen owns the big celebration.
+      confettiPop({
+        origin,
+        teamColorVar: teamColorAt(TEAM_COLOR_VARS, currentTeamIndex),
+        big: target === 'B' && mult === 2,
+      });
+    }
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, onGameUpdate]);
+  }, [game, dartsThrown, currentTeamIndex, onGameUpdate]);
 
-  const handleNumberTap = (num: number) => {
+  const handleNumberTap = (num: number, origin?: { x: number; y: number }) => {
     setTappedNumber(String(num));
     setTimeout(() => setTappedNumber(null), 200);
-    handleDartEntry(num, multiplier);
+    handleDartEntry(num, multiplier, origin);
   };
 
-  const handleBull = (double: boolean) => {
+  const handleBull = (double: boolean, origin?: { x: number; y: number }) => {
     setTappedNumber(double ? 'DB' : 'SB');
     setTimeout(() => setTappedNumber(null), 200);
-    handleDartEntry('B', double ? 2 : 1);
+    handleDartEntry('B', double ? 2 : 1, origin);
   };
 
   const handleMiss = () => {
@@ -156,12 +171,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
   const isIndividual = game.mode === 'individual';
 
-  // Team colors for multi-team/player support
-  const teamColors = ['text-primary', 'text-chart-2', 'text-emerald-400', 'text-purple-400', 'text-orange-400', 'text-pink-400', 'text-cyan-400', 'text-yellow-400'];
-  const teamBgColors = ['bg-primary', 'bg-chart-2', 'bg-emerald-400', 'bg-purple-400', 'bg-orange-400', 'bg-pink-400', 'bg-cyan-400', 'bg-yellow-400'];
-  const teamHighlightColors = ['bg-primary/15 ring-2 ring-inset ring-primary/50', 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50', 'bg-emerald-400/15 ring-2 ring-inset ring-emerald-400/50', 'bg-purple-400/15 ring-2 ring-inset ring-purple-400/50', 'bg-orange-400/15 ring-2 ring-inset ring-orange-400/50', 'bg-pink-400/15 ring-2 ring-inset ring-pink-400/50', 'bg-cyan-400/15 ring-2 ring-inset ring-cyan-400/50', 'bg-yellow-400/15 ring-2 ring-inset ring-yellow-400/50'];
-  const teamActiveTurnStyles = ['border-l-primary bg-primary/10', 'border-l-chart-2 bg-chart-2/10', 'border-l-emerald-400 bg-emerald-400/10', 'border-l-purple-400 bg-purple-400/10', 'border-l-orange-400 bg-orange-400/10', 'border-l-pink-400 bg-pink-400/10', 'border-l-cyan-400 bg-cyan-400/10', 'border-l-yellow-400 bg-yellow-400/10'];
-
   // Chart data
   const { chartData, chartConfig, hasActivity, chartDomain } = useMemo(() => {
     const allDarts = game.dartHistory;
@@ -198,29 +207,29 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       : [domainMin, game.startingScore];
 
     const config: ChartConfig = {};
-    const hues = [38, 195, 150, 280, 25, 330, 185, 55];
     game.teams.forEach((t, idx) => {
       config[t.id] = {
         label: isIndividual ? t.players[0]?.name || t.name : t.name,
-        color: `hsl(${hues[idx % hues.length]} 85% 55%)`,
+        color: teamColorAt(TEAM_CHART_COLORS, idx),
       };
     });
 
     return { chartData: data, chartConfig: config, hasActivity: hasAny, chartDomain: domain };
-  }, [game.dartHistory, game.currentTurnDarts, game.teams, game.startingScore, isIndividual]);
+  }, [game.dartHistory, game.teams, game.startingScore, isIndividual]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
+    <main className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
       {/* Nav Header */}
-      <div className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
-        <div className="w-8" />
+      <header className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
+        <div className="w-9" />
         <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">X01</span>
         <div className="flex items-center gap-1">
           {game.status !== 'completed' && (
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 text-muted-foreground"
+              className="text-muted-foreground"
+              aria-label="Game settings"
               onClick={() => setShowSettings(true)}
               data-testid="button-game-settings"
             >
@@ -229,7 +238,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           )}
           <ShareButton gameId={game.id} playerCount={playerCount} isConnected={isConnected} />
         </div>
-      </div>
+      </header>
       {/* Score Header */}
       {isIndividual ? (
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border overflow-x-auto flex-shrink-0">
@@ -237,10 +246,10 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
             <div
               key={team.id}
               className={`flex flex-col items-center px-3 py-1 rounded-md min-w-[64px] shrink-0 transition-all duration-300 ${
-                currentTeamIndex === idx ? teamHighlightColors[idx % teamHighlightColors.length] : ''
+                currentTeamIndex === idx ? teamColorAt(TEAM_HIGHLIGHT_CLASSES, idx) : ''
               }`}
             >
-              <div className={`text-[10px] font-medium tracking-wider uppercase truncate ${teamColors[idx % teamColors.length]}`}>
+              <div className={`text-[10px] font-medium tracking-wider uppercase truncate ${teamColorAt(TEAM_TEXT_COLORS, idx)}`}>
                 {team.players[0]?.name || team.name}
               </div>
               <div className="font-mono text-2xl font-bold tabular-nums">
@@ -276,11 +285,11 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       )}
 
       {/* Current player + dart counter */}
-      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 border-l-4 transition-colors duration-300 ${
-        teamActiveTurnStyles[currentTeamIndex % teamActiveTurnStyles.length]
+      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 transition-colors duration-300 ${
+        teamColorAt(TEAM_ACTIVE_TURN_CLASSES, currentTeamIndex)
       }`}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${teamBgColors[currentTeamIndex % teamBgColors.length]}`} />
+          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${teamColorAt(TEAM_BG_COLORS, currentTeamIndex)}`} />
           <span className="text-sm font-medium truncate" data-testid="text-current-player">
             {currentPlayer.name}
           </span>
@@ -300,11 +309,17 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         </div>
       </div>
 
+      <div aria-live="polite" className="sr-only">
+        {dartsThrown > 0
+          ? `${formatDart(game.currentTurnDarts[dartsThrown - 1])}, ${game.teams[currentTeamIndex].remainingScore} remaining`
+          : `${currentPlayer.name} to throw`}
+      </div>
+
       {/* Upcoming player rotation */}
       <div className="flex items-center gap-3 px-3 py-1 border-b border-border overflow-x-auto">
         {upcomingPlayers.map((up, i) => (
           <div key={`${up.player.id}-${i}`} className="flex items-center gap-1.5 shrink-0">
-            <div className={`w-1.5 h-1.5 rounded-full ${teamBgColors[up.teamIndex % teamBgColors.length]}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${teamColorAt(TEAM_BG_COLORS, up.teamIndex)}`} />
             <span className="text-xs text-muted-foreground truncate max-w-[80px]">
               {up.player.name}
             </span>
@@ -327,7 +342,8 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15 }}
               onClick={() => handleRemoveDart(idx)}
-              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 text-sm font-mono font-semibold text-secondary-foreground shrink-0"
+              aria-label={`Remove dart ${formatDart(dart)}`}
+              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
             >
               {formatDart(dart)}
               <X className="w-3.5 h-3.5 text-muted-foreground" />
@@ -368,7 +384,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         </div>
         <div className="flex flex-col justify-between shrink-0 w-10 py-2 pr-2">
           {game.teams.slice(0, 2).map((team, idx) => (
-            <span key={team.id} className={`font-mono text-xs font-bold tabular-nums ${teamColors[idx % teamColors.length]}`}>
+            <span key={team.id} className={`font-mono text-xs font-bold tabular-nums ${teamColorAt(TEAM_TEXT_COLORS, idx)}`}>
               {team.remainingScore}
             </span>
           ))}
@@ -376,13 +392,13 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 flex flex-col px-2 pb-2 gap-1.5 pt-1.5">
+      <footer className="shrink-0 flex flex-col px-2 pb-2 gap-1.5 pt-1.5">
         {/* Row 1: Miss, SB, DB */}
         <div className="flex gap-1.5">
           <Button
             variant="secondary"
             size="sm"
-            className={`flex-1 text-muted-foreground text-xs transition-all duration-150 ${
+            className={`flex-1 min-h-10 text-muted-foreground text-xs transition-all duration-150 ${
               tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
             }`}
             disabled={isInputDisabled || dartsThrown >= 3}
@@ -396,9 +412,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               multipliers={[1, 2]}
               highlighted={tappedNumber === 'SB'}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleBull(false)}
-              onLongSelect={(m) => handleBull(m === 2)}
-              className="text-xs"
+              onTap={(origin) => handleBull(false, origin)}
+              onLongSelect={(m, origin) => handleBull(m === 2, origin)}
+              className="min-h-10 text-xs"
               testId="button-single-bull"
             />
           </div>
@@ -408,9 +424,9 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               multipliers={[1, 2]}
               highlighted={tappedNumber === 'DB'}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleBull(true)}
-              onLongSelect={(m) => handleBull(m === 2)}
-              className="text-xs"
+              onTap={(origin) => handleBull(true, origin)}
+              onLongSelect={(m, origin) => handleBull(m === 2, origin)}
+              className="min-h-10 text-xs"
               testId="button-double-bull"
             />
           </div>
@@ -424,13 +440,13 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               label={num}
               highlighted={tappedNumber === String(num)}
               disabled={isInputDisabled || dartsThrown >= 3}
-              onTap={() => handleNumberTap(num)}
-              onLongSelect={(m) => {
+              onTap={(origin) => handleNumberTap(num, origin)}
+              onLongSelect={(m, origin) => {
                 setTappedNumber(String(num));
                 setTimeout(() => setTappedNumber(null), 200);
-                handleDartEntry(num, m);
+                handleDartEntry(num, m, origin);
               }}
-              className="font-mono text-sm font-bold py-2.5"
+              className="font-mono text-sm font-bold py-3"
               testId={`button-number-${num}`}
             />
           ))}
@@ -445,7 +461,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               onClick={() => setMultiplier(m)}
               variant={multiplier === m ? 'default' : 'secondary'}
               size="sm"
-              className={`text-xs font-semibold tracking-wide ${
+              className={`min-h-10 text-xs font-semibold tracking-wide ${
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
@@ -459,7 +475,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 gap-1 text-xs"
+            className="flex-1 min-h-10 gap-1 text-xs"
             disabled={game.dartHistory.length === 0 || isInputDisabled}
             onClick={handleUndo}
           >
@@ -468,7 +484,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           </Button>
           <Button
             size="sm"
-            className="flex-[2] gap-1 text-xs"
+            className="flex-[2] min-h-10 gap-1 text-xs"
             disabled={dartsThrown === 0 || isInputDisabled}
             onClick={handleNextPlayer}
           >
@@ -476,7 +492,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
             <ChevronRight className="w-3.5 h-3.5" />
           </Button>
         </div>
-      </div>
+      </footer>
 
       {/* Bust Flash */}
       <AnimatePresence>
@@ -486,6 +502,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            role="alert"
             className="absolute inset-x-0 top-0 flex items-center justify-center py-3 bg-destructive/90 z-40"
           >
             <AlertTriangle className="w-4 h-4 text-destructive-foreground mr-2" />
@@ -494,70 +511,37 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         )}
       </AnimatePresence>
 
-      {/* Win Modal */}
-      <AnimatePresence>
-        {pendingWin && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-card rounded-md p-6 w-full max-w-xs text-center space-y-4 border border-card-border"
-            >
-              <div className="text-3xl font-bold font-mono text-primary">
-                {pendingWin.teamName} Wins!
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Confirm this result?
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" className="flex-1" onClick={handleCancelWin}>
-                  Undo
-                </Button>
-                <Button className="flex-1" onClick={handleConfirmWin}>
-                  Confirm Win
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={pendingWin !== null}
+        title={
+          <span className="block text-3xl font-bold font-mono text-primary">
+            {pendingWin?.teamName} Wins!
+          </span>
+        }
+        description="Confirm this result?"
+        cancelLabel="Undo"
+        confirmLabel="Confirm Win"
+        onCancel={handleCancelWin}
+        onConfirm={handleConfirmWin}
+        cancelTestId="button-cancel-win"
+        confirmTestId="button-confirm-win"
+      />
 
-      {/* Undo Confirm Modal */}
-      <AnimatePresence>
-        {showUndoConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/70 flex items-center justify-center z-50 p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="bg-card rounded-md p-5 w-full max-w-xs text-center space-y-4 border border-card-border"
-            >
-              <p className="text-sm text-foreground">
-                Undo <span className="font-semibold">{undoPrevPlayerName}</span>'s last dart?
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" className="flex-1" onClick={() => setShowUndoConfirm(false)}>
-                  Cancel
-                </Button>
-                <Button className="flex-1" onClick={handleConfirmUndo}>
-                  Undo
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={showUndoConfirm}
+        title="Undo last dart?"
+        description={
+          <>
+            Removes <span className="font-semibold text-foreground">{undoPrevPlayerName}</span>'s last dart from the previous turn.
+          </>
+        }
+        cancelLabel="Cancel"
+        confirmLabel="Undo"
+        onCancel={() => setShowUndoConfirm(false)}
+        onConfirm={handleConfirmUndo}
+        cancelTestId="button-cancel-undo-confirm"
+        confirmTestId="button-confirm-undo"
+      />
 
       <GameSettingsSheet
         game={game}
@@ -565,6 +549,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         open={showSettings}
         onOpenChange={setShowSettings}
       />
-    </div>
+    </main>
   );
 }

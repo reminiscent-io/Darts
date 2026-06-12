@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useCallback, useEffect, useRef, Component, Suspense, lazy, type ReactNode, type ErrorInfo } from "react";
 import { Router, Route, useParams, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
@@ -10,13 +10,22 @@ import {
 import { createX01Game } from "@/lib/x01-game-logic";
 import { useGameSync } from "@/hooks/use-game-sync";
 import HomeScreen from "@/pages/home-screen";
-import SetupScreen, { type GameSetupConfig } from "@/pages/setup-screen";
-import CricketGameScreen from "@/pages/cricket-game-screen";
-import CricketPostGameScreen from "@/pages/cricket-post-game-screen";
-import X01GameScreen from "@/pages/x01-game-screen";
-import X01PostGameScreen from "@/pages/x01-post-game-screen";
-import HistoryScreen from "@/pages/history-screen";
+import type { GameSetupConfig } from "@/pages/setup-screen";
 import AccessScreen, { isAccessGranted } from "@/pages/access-screen";
+
+// Code-split everything past the home screen; recharts only ships with the game chunks.
+const SetupScreen = lazy(() => import("@/pages/setup-screen"));
+const CricketGameScreen = lazy(() => import("@/pages/cricket-game-screen"));
+const CricketPostGameScreen = lazy(() => import("@/pages/cricket-post-game-screen"));
+const X01GameScreen = lazy(() => import("@/pages/x01-game-screen"));
+const X01PostGameScreen = lazy(() => import("@/pages/x01-post-game-screen"));
+const HistoryScreen = lazy(() => import("@/pages/history-screen"));
+
+const screenFallback = (
+  <div className="h-full flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 function MainApp() {
   const [authenticated, setAuthenticated] = useState(() => isAccessGranted());
@@ -246,7 +255,9 @@ function MainApp() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <SetupScreen onBack={handleBackToHome} onStartGame={handleStartGame} />
+            <Suspense fallback={screenFallback}>
+              <SetupScreen onBack={handleBackToHome} onStartGame={handleStartGame} />
+            </Suspense>
           </motion.div>
         )}
 
@@ -259,7 +270,7 @@ function MainApp() {
             transition={{ duration: 0.15 }}
             className="h-full"
           >
-            {renderGameScreen()}
+            <Suspense fallback={screenFallback}>{renderGameScreen()}</Suspense>
           </motion.div>
         )}
 
@@ -272,7 +283,7 @@ function MainApp() {
             transition={{ duration: 0.3 }}
             className="h-full"
           >
-            {renderPostGameScreen()}
+            <Suspense fallback={screenFallback}>{renderPostGameScreen()}</Suspense>
           </motion.div>
         )}
 
@@ -285,7 +296,9 @@ function MainApp() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <HistoryScreen onBack={handleBackToHome} />
+            <Suspense fallback={screenFallback}>
+              <HistoryScreen onBack={handleBackToHome} />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
@@ -399,23 +412,25 @@ function SharedGameView() {
 
   return (
     <div className="h-full w-full max-w-lg mx-auto relative bg-background">
-      {game.gameType === 'cricket' ? (
-        <CricketGameScreen
-          game={game as CricketGame}
-          onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
-          onGameEnd={handleGameEnd as (g: CricketGame) => void}
-          playerCount={playerCount}
-          isConnected={isConnected}
-        />
-      ) : (
-        <X01GameScreen
-          game={game as X01Game}
-          onGameUpdate={handleGameUpdate as (g: X01Game) => void}
-          onGameEnd={handleGameEnd as (g: X01Game) => void}
-          playerCount={playerCount}
-          isConnected={isConnected}
-        />
-      )}
+      <Suspense fallback={screenFallback}>
+        {game.gameType === 'cricket' ? (
+          <CricketGameScreen
+            game={game as CricketGame}
+            onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
+            onGameEnd={handleGameEnd as (g: CricketGame) => void}
+            playerCount={playerCount}
+            isConnected={isConnected}
+          />
+        ) : (
+          <X01GameScreen
+            game={game as X01Game}
+            onGameUpdate={handleGameUpdate as (g: X01Game) => void}
+            onGameEnd={handleGameEnd as (g: X01Game) => void}
+            playerCount={playerCount}
+            isConnected={isConnected}
+          />
+        )}
+      </Suspense>
       <Toaster />
     </div>
   );

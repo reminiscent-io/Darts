@@ -59,18 +59,19 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center gap-2 p-3 border-b border-border">
+    <main className="h-full flex flex-col">
+      <header className="flex items-center gap-2 p-3 border-b border-border">
         <Button
           data-testid="button-history-back"
           variant="ghost"
           size="icon"
+          aria-label="Back to home"
           onClick={onBack}
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h2 className="text-lg font-semibold">Game History</h2>
-      </div>
+      </header>
 
       <div className="flex-1 overflow-y-auto">
         {history.length === 0 ? (
@@ -101,6 +102,7 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
                 >
                   <button
                     type="button"
+                    aria-expanded={isExpanded}
                     className="w-full text-left bg-muted/20 hover:bg-muted/40 rounded-md px-3 py-3 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : game.id)}
                   >
@@ -157,11 +159,10 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className="overflow-hidden"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.12 }}
                       >
                         <div className="px-3 py-2 bg-muted/10 rounded-b-md border-t border-border/50 space-y-2">
                           <div className={`grid gap-3`}
@@ -193,19 +194,19 @@ export default function HistoryScreen({ onBack }: HistoryScreenProps) {
       </div>
 
       {history.length > 0 && (
-        <div className="p-4 border-t border-border">
+        <footer className="p-4 border-t border-border">
           <Button
             data-testid="button-clear-history"
             variant="secondary"
             size="sm"
-            className="w-full gap-2 text-muted-foreground"
+            className="w-full min-h-10 gap-2 text-muted-foreground"
             onClick={handleClear}
           >
             <Trash2 className="w-3.5 h-3.5" />
             {confirmClear ? "Tap again to confirm" : "Clear History"}
           </Button>
-        </div>
+        </footer>
       )}
-    </div>
+    </main>
   );
 }

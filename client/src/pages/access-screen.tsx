@@ -45,7 +45,7 @@ export default function AccessScreen({ onAccessGranted }: AccessScreenProps) {
   );
 
   return (
-    <div className="h-full flex flex-col items-center justify-center px-6">
+    <main className="h-full flex flex-col items-center justify-center px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -70,10 +70,11 @@ export default function AccessScreen({ onAccessGranted }: AccessScreenProps) {
           className="w-full flex flex-col gap-3"
         >
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Lock className="w-4 h-4" />
-            <span>Enter access code</span>
+            <Lock className="w-4 h-4" aria-hidden="true" />
+            <label htmlFor="access-code-input">Enter access code</label>
           </div>
           <Input
+            id="access-code-input"
             data-testid="input-access-code"
             type="text"
             placeholder="Access code"
@@ -94,6 +95,7 @@ export default function AccessScreen({ onAccessGranted }: AccessScreenProps) {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              role="alert"
               className="text-sm text-destructive text-center"
             >
               Incorrect code
@@ -109,6 +111,6 @@ export default function AccessScreen({ onAccessGranted }: AccessScreenProps) {
           </Button>
         </motion.div>
       </motion.div>
-    </div>
+    </main>
   );
 }

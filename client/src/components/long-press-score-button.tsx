@@ -1,4 +1,4 @@
-import { ReactNode, useState, useRef, useCallback } from "react";
+import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils";
 interface LongPressScoreButtonProps {
   label: ReactNode;
   multipliers?: Multiplier[];
-  onTap: () => void;
-  onLongSelect: (multiplier: Multiplier) => void;
+  // Callbacks receive the trigger's viewport center so callers can anchor
+  // effects (e.g. the score burst) to the tapped button.
+  onTap: (origin?: { x: number; y: number }) => void;
+  onLongSelect: (multiplier: Multiplier, origin?: { x: number; y: number }) => void;
   highlighted?: boolean;
   disabled?: boolean;
   className?: string;
@@ -27,49 +29,78 @@ export default function LongPressScoreButton({
   testId,
 }: LongPressScoreButtonProps) {
   const [open, setOpen] = useState(false);
-  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Horizontal offset (px, relative to the trigger) that keeps the menu on-screen.
+  // Positioned via `left` instead of CSS transforms because Framer Motion owns
+  // the inline transform while animating y/scale.
+  const [menuLeft, setMenuLeft] = useState(0);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const openPopup = useCallback(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const popupWidth = multipliers.length * 44 + (multipliers.length - 1) * 4 + 8;
-      const centeredLeft = rect.left + rect.width / 2 - popupWidth / 2;
-      const screenWidth = window.innerWidth;
-      const margin = 8;
-
-      let translateX = "-50%";
-      if (centeredLeft < margin) {
-        const correction = margin - centeredLeft;
-        translateX = `calc(-50% + ${correction}px)`;
-      } else if (centeredLeft + popupWidth > screenWidth - margin) {
-        const correction = centeredLeft + popupWidth - (screenWidth - margin);
-        translateX = `calc(-50% - ${correction}px)`;
-      }
-
-      setPopupStyle({ transform: `translateX(${translateX})` });
-    }
-    setOpen(true);
-  }, [multipliers.length]);
+  const tapOrigin = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined;
+  };
 
   const handlers = useLongPress(
-    openPopup,
-    () => onTap(),
+    () => setOpen(true),
+    () => onTap(tapOrigin()),
     { disabled }
   );
 
-  const handleSelect = (m: Multiplier) => {
+  // Before paint: center the menu over the trigger, clamp it to the viewport,
+  // and move focus in so keyboard users can pick a multiplier.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (trigger && menu) {
+      const margin = 8;
+      const triggerRect = trigger.getBoundingClientRect();
+      const menuWidth = menu.offsetWidth;
+      const centered = triggerRect.left + (triggerRect.width - menuWidth) / 2;
+      const maxLeft = document.documentElement.clientWidth - margin - menuWidth;
+      const clamped = Math.min(Math.max(centered, margin), Math.max(margin, maxLeft));
+      setMenuLeft(clamped - triggerRect.left);
+    }
+    menu?.querySelector("button")?.focus();
+  }, [open]);
+
+  const closeMenu = (refocus: boolean) => {
     setOpen(false);
-    onLongSelect(m);
+    if (refocus) triggerRef.current?.focus();
+  };
+
+  const handleSelect = (m: Multiplier) => {
+    closeMenu(true);
+    onLongSelect(m, tapOrigin());
+  };
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu(true);
+      return;
+    }
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const items = Array.from(menuRef.current?.querySelectorAll("button") ?? []);
+      const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+      if (idx === -1 || items.length === 0) return;
+      const next = e.key === "ArrowRight" ? (idx + 1) % items.length : (idx - 1 + items.length) % items.length;
+      items[next].focus();
+    }
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <Button
         {...handlers}
+        ref={triggerRef}
         variant="secondary"
         size="sm"
         disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
         data-testid={testId}
         className={cn(
           "w-full select-none touch-none",
@@ -89,18 +120,22 @@ export default function LongPressScoreButton({
               aria-hidden
             />
             <motion.div
+              ref={menuRef}
               initial={{ opacity: 0, y: 6, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 6, scale: 0.92 }}
               transition={{ duration: 0.12 }}
-              className="absolute z-50 bottom-full mb-2 left-1/2 flex gap-1 bg-popover border border-border rounded-md p-1 shadow-lg"
-              style={popupStyle}
+              style={{ left: menuLeft }}
+              className="absolute z-50 bottom-full mb-2 flex gap-1 bg-popover border border-border rounded-md p-1 shadow-lg"
               role="menu"
+              aria-label="Multiplier"
+              onKeyDown={handleMenuKeyDown}
             >
               {multipliers.map((m) => (
                 <button
                   key={m}
                   type="button"
+                  role="menuitem"
                   onClick={() => handleSelect(m)}
                   className="font-mono text-sm font-bold tabular-nums w-10 h-10 rounded bg-secondary text-secondary-foreground hover-elevate active-elevate-2"
                   data-testid={testId ? `${testId}-mult-${m}` : undefined}
