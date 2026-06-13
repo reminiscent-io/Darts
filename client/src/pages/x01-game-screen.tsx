@@ -330,31 +330,6 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         ))}
       </div>
 
-      {/* Dart tray */}
-      <div className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted/10 overflow-x-auto">
-        <span className="text-sm text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
-        <AnimatePresence mode="popLayout">
-          {game.currentTurnDarts.map((dart, idx) => (
-            <motion.button
-              key={dart.id}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.15 }}
-              onClick={() => handleRemoveDart(idx)}
-              aria-label={`Remove dart ${formatDart(dart)}`}
-              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
-            >
-              {formatDart(dart)}
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
-            </motion.button>
-          ))}
-        </AnimatePresence>
-        {dartsThrown === 0 && (
-          <span className="text-sm text-muted-foreground/30 italic">no darts thrown</span>
-        )}
-      </div>
-
       {/* Score Progression Chart */}
       <div className="flex-1 min-h-0 flex py-1">
         <div className="flex-1 min-w-0 pl-2">
@@ -389,6 +364,31 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Dart tray */}
+      <div className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/10 overflow-x-auto">
+        <span className="text-sm text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
+        <AnimatePresence mode="popLayout">
+          {game.currentTurnDarts.map((dart, idx) => (
+            <motion.button
+              key={dart.id}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => handleRemoveDart(idx)}
+              aria-label={`Remove dart ${formatDart(dart)}`}
+              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
+            >
+              {formatDart(dart)}
+              <X className="w-3.5 h-3.5 text-muted-foreground" />
+            </motion.button>
+          ))}
+        </AnimatePresence>
+        {dartsThrown === 0 && (
+          <span className="text-sm text-muted-foreground/30 italic">no darts thrown</span>
+        )}
       </div>
 
       {/* Input Area */}
