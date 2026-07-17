@@ -14,6 +14,8 @@ interface CurrentPlayerBarProps {
   teamIndex: number;
   dartsThrown: number;
   roundTotal?: number;
+  /** Checkout route for the current thrower (X01), e.g. ["T15", "D8"]. */
+  checkout?: string[] | null;
 }
 
 export default function CurrentPlayerBar({
@@ -22,6 +24,7 @@ export default function CurrentPlayerBar({
   teamIndex,
   dartsThrown,
   roundTotal,
+  checkout,
 }: CurrentPlayerBarProps) {
   const reducedMotion = useReducedMotion();
 
@@ -73,7 +76,28 @@ export default function CurrentPlayerBar({
           <span className="text-xs font-mono text-muted-foreground ml-1">({roundTotal})</span>
         )}
       </div>
-      <div className="relative flex items-center gap-1 shrink-0" data-testid="dart-counter">
+      <div className="relative flex items-center gap-3 shrink-0">
+        <AnimatePresence initial={false}>
+          {checkout && checkout.length > 0 && (
+            <motion.div
+              key={checkout.join(' ')}
+              initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.1 } }}
+              transition={{ duration: 0.2, ease: EASE_OUT_EXPO }}
+              className="flex items-baseline gap-1.5"
+              data-testid="checkout-hint"
+            >
+              <span className="text-[10px] font-medium tracking-wider uppercase text-muted-foreground">
+                Out
+              </span>
+              <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                {checkout.join(' · ')}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <div className="relative flex items-center gap-1 shrink-0" data-testid="dart-counter">
         {[0, 1, 2].map((i) => (
           <div
             key={i}
@@ -83,6 +107,7 @@ export default function CurrentPlayerBar({
             style={{ transitionDelay: dartsThrown === 0 ? `${i * 40}ms` : "0ms" }}
           />
         ))}
+        </div>
       </div>
     </div>
   );

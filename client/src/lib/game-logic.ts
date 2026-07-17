@@ -558,14 +558,21 @@ export function loadGameHistory(): GameSummary[] {
 export async function loadGameHistoryFromDb(): Promise<GameSummary[]> {
   try {
     const res = await fetch('/api/history');
-    if (!res.ok) return [];
+    // A failed fetch must never erase locally stored history.
+    if (!res.ok) return loadGameHistory();
     const data = await res.json();
     const summaries = (data as GameSummary[]).map((s: GameSummary) => ({
       ...s,
       completedAt: typeof s.completedAt === 'string' ? s.completedAt : new Date(s.completedAt).toISOString(),
     }));
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(summaries));
-    return summaries;
+    // Merge in local games the server doesn't know about (e.g. saved while
+    // the POST to /api/history failed), newest first.
+    const serverIds = new Set(summaries.map(s => s.id));
+    const merged = [...summaries, ...loadGameHistory().filter(s => !serverIds.has(s.id))]
+      .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+    if (merged.length > MAX_HISTORY) merged.length = MAX_HISTORY;
+    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(merged));
+    return merged;
   } catch {
     return loadGameHistory();
   }
