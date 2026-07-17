@@ -8,7 +8,7 @@
 - `border` — `220 10% 18%`
 - `card` — `220 12% 13%`
 - `muted` — `220 10% 16%`
-- `muted-foreground` — `210 10% 55%`
+- `muted-foreground` — `210 10% 60%` (4.8:1 on secondary surfaces, WCAG AA)
 - `primary` — `38 95% 55%` (bullseye amber/gold) — also `--ring`, `--sidebar-primary`
 - `accent` — `38 30% 18%` (deep amber, surface tint)
 - `destructive` — `0 72% 45%`

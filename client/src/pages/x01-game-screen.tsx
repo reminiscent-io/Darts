@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Undo2, ChevronRight, X, AlertTriangle, Settings } from "lucide-react";
+import { Undo2, ChevronRight, X, AlertTriangle, Home, Settings } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis } from "recharts";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig
@@ -20,6 +20,7 @@ import GameSettingsSheet from "@/components/game-settings-sheet";
 import ConfirmDialog from "@/components/confirm-dialog";
 import CurrentPlayerBar from "@/components/current-player-bar";
 import { useDartFlight, DartFlightLayer } from "@/hooks/use-dart-flight";
+import { getCheckoutRoute } from "@/lib/checkout";
 import { confettiPop } from "@/lib/confetti";
 import { EASE_OUT_EXPO } from "@/lib/motion";
 import {
@@ -31,15 +32,17 @@ interface X01GameScreenProps {
   game: X01Game;
   onGameUpdate: (game: X01Game) => void;
   onGameEnd: (game: X01Game) => void;
+  onLeave: () => void;
   playerCount?: number;
   isConnected?: boolean;
 }
 
-export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: X01GameScreenProps) {
+export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, playerCount = 0, isConnected = false }: X01GameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [bustFlash, setBustFlash] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const lastDartTime = useRef(0);
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
@@ -49,6 +52,17 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const dartsThrown = game.currentTurnDarts.length;
   const roundTotal = getCurrentTurnTotal(game);
+
+  // Checkout hint for the thrower: silent unless a finish is on with the
+  // darts left in this turn.
+  const checkoutRoute = useMemo(() => {
+    if (game.status !== 'in_progress') return null;
+    return getCheckoutRoute(
+      game.teams[currentTeamIndex].remainingScore,
+      3 - dartsThrown,
+      game.doubleOut
+    );
+  }, [game, currentTeamIndex, dartsThrown]);
 
   const pendingWin = useMemo(() => {
     if (game.status !== 'in_progress') return null;
@@ -225,11 +239,44 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
     return { chartData: data, chartConfig: config, hasActivity: hasAny, chartDomain: domain };
   }, [game.dartHistory, game.teams, game.startingScore, isIndividual]);
 
+  // Anchor each end-label to where its line actually ends, nudging
+  // overlapping labels apart so close scores stay readable.
+  const endLabels = useMemo(() => {
+    const [dMin, dMax] = chartDomain;
+    const range = dMax - dMin || 1;
+    const labels = game.teams
+      .map((team, idx) => ({
+        id: team.id,
+        idx,
+        value: team.remainingScore,
+        pct: (1 - (team.remainingScore - dMin) / range) * 100,
+      }))
+      .sort((a, b) => a.pct - b.pct);
+    const GAP = 10;
+    for (let i = 0; i < labels.length; i++) {
+      labels[i].pct = Math.max(4, Math.min(96, labels[i].pct));
+      if (i > 0 && labels[i].pct - labels[i - 1].pct < GAP) {
+        labels[i].pct = labels[i - 1].pct + GAP;
+      }
+    }
+    const overflow = labels.length ? labels[labels.length - 1].pct - 96 : 0;
+    if (overflow > 0) labels.forEach(l => { l.pct = Math.max(2, l.pct - overflow); });
+    return labels;
+  }, [game.teams, chartDomain]);
+
   return (
     <main className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
       {/* Nav Header */}
       <header className="flex items-center justify-between px-2 py-1 border-b border-border flex-shrink-0 bg-muted/10">
-        <div className="w-9" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
+          aria-label="Leave game"
+          onClick={() => setShowLeaveConfirm(true)}
+        >
+          <Home className="w-4 h-4" />
+        </Button>
         <span className="text-xs font-mono text-muted-foreground/50 tracking-wider uppercase">X01</span>
         <div className="flex items-center gap-1">
           {game.status !== 'completed' && (
@@ -317,12 +364,14 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         teamIndex={currentTeamIndex}
         dartsThrown={dartsThrown}
         roundTotal={roundTotal}
+        checkout={checkoutRoute}
       />
 
       <div aria-live="polite" className="sr-only">
-        {dartsThrown > 0
+        {(dartsThrown > 0
           ? `${formatDart(game.currentTurnDarts[dartsThrown - 1])}, ${game.teams[currentTeamIndex].remainingScore} remaining`
-          : `${currentPlayer.name} to throw`}
+          : `${currentPlayer.name} to throw`)
+          + (checkoutRoute ? `, out ${checkoutRoute.join(' ')}` : '')}
       </div>
 
       {/* Upcoming player rotation */}
@@ -367,10 +416,14 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
             </div>
           )}
         </div>
-        <div className="flex flex-col justify-between shrink-0 w-10 py-2 pr-2">
-          {game.teams.slice(0, 2).map((team, idx) => (
-            <span key={team.id} className={`font-mono text-xs font-bold tabular-nums ${teamColorAt(TEAM_TEXT_COLORS, idx)}`}>
-              {team.remainingScore}
+        <div className="relative shrink-0 w-10">
+          {endLabels.map((label) => (
+            <span
+              key={label.id}
+              className={`absolute right-2 -translate-y-1/2 font-mono text-xs font-bold tabular-nums ${teamColorAt(TEAM_TEXT_COLORS, label.idx)}`}
+              style={{ top: `${label.pct}%` }}
+            >
+              {label.value}
             </span>
           ))}
         </div>
@@ -409,7 +462,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           <Button
             variant="secondary"
             size="sm"
-            className={`flex-1 min-h-10 text-muted-foreground text-xs transition-all duration-150 ${
+            className={`flex-1 min-h-11 text-muted-foreground text-xs transition-all duration-150 ${
               tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
             }`}
             disabled={isInputDisabled || dartsThrown >= 3}
@@ -425,7 +478,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={(origin) => handleBull(false, origin)}
               onLongSelect={(m, origin) => handleBull(m === 2, origin)}
-              className="min-h-10 text-xs"
+              className="min-h-11 text-xs"
               testId="button-single-bull"
             />
           </div>
@@ -437,7 +490,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={(origin) => handleBull(true, origin)}
               onLongSelect={(m, origin) => handleBull(m === 2, origin)}
-              className="min-h-10 text-xs"
+              className="min-h-11 text-xs"
               testId="button-double-bull"
             />
           </div>
@@ -475,7 +528,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
               onClick={() => setMultiplier(m)}
               variant={multiplier === m ? 'default' : 'secondary'}
               size="sm"
-              className={`min-h-10 text-xs font-semibold tracking-wide ${
+              className={`min-h-11 text-xs font-semibold tracking-wide ${
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
@@ -489,7 +542,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 min-h-10 gap-1 text-xs"
+            className="flex-1 min-h-11 gap-1 text-xs"
             disabled={game.dartHistory.length === 0 || isInputDisabled}
             onClick={handleUndo}
           >
@@ -498,7 +551,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
           </Button>
           <Button
             size="sm"
-            className="flex-[2] min-h-10 gap-1 text-xs"
+            className="flex-[2] min-h-11 gap-1 text-xs"
             disabled={dartsThrown === 0 || isInputDisabled}
             onClick={handleNextPlayer}
           >
@@ -557,6 +610,16 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, playerCou
         onConfirm={handleConfirmUndo}
         cancelTestId="button-cancel-undo-confirm"
         confirmTestId="button-confirm-undo"
+      />
+
+      <ConfirmDialog
+        open={showLeaveConfirm}
+        title="Leave this game?"
+        description="Your game is saved. Resume it from the home screen."
+        cancelLabel="Stay"
+        confirmLabel="Leave"
+        onCancel={() => setShowLeaveConfirm(false)}
+        onConfirm={onLeave}
       />
 
       <GameSettingsSheet

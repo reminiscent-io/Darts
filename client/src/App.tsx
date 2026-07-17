@@ -167,6 +167,12 @@ function MainApp() {
     setScreen('home');
   }, []);
 
+  // Leaving mid-game keeps the save so the home screen can offer Resume.
+  const handleLeaveGame = useCallback(() => {
+    setGame(null);
+    setScreen('home');
+  }, []);
+
   const handleViewHistory = useCallback(() => {
     setScreen('history');
   }, []);
@@ -192,6 +198,7 @@ function MainApp() {
           game={game as CricketGame}
           onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
           onGameEnd={handleGameEnd as (g: CricketGame) => void}
+          onLeave={handleLeaveGame}
           playerCount={playerCount}
           isConnected={isConnected}
         />
@@ -202,6 +209,7 @@ function MainApp() {
         game={game as X01Game}
         onGameUpdate={handleGameUpdate as (g: X01Game) => void}
         onGameEnd={handleGameEnd as (g: X01Game) => void}
+        onLeave={handleLeaveGame}
         playerCount={playerCount}
         isConnected={isConnected}
       />
@@ -418,6 +426,7 @@ function SharedGameView() {
             game={game as CricketGame}
             onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
             onGameEnd={handleGameEnd as (g: CricketGame) => void}
+            onLeave={() => setLocation("/")}
             playerCount={playerCount}
             isConnected={isConnected}
           />
@@ -426,6 +435,7 @@ function SharedGameView() {
             game={game as X01Game}
             onGameUpdate={handleGameUpdate as (g: X01Game) => void}
             onGameEnd={handleGameEnd as (g: X01Game) => void}
+            onLeave={() => setLocation("/")}
             playerCount={playerCount}
             isConnected={isConnected}
           />

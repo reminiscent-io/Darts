@@ -12,7 +12,7 @@ import {
 import {
   getCurrentPlayer, recordCricketDart, advanceTurn, undoLastCricketDart,
   removeCricketDartAtIndex, formatDart, isNumberDead, isNumberClosedByTeam,
-  saveGame, clearSavedGame, confirmWin, getCricketPlayerStats,
+  saveGame, confirmWin, getCricketPlayerStats,
   checkCricketWinCondition
 } from "@/lib/game-logic";
 import ShareButton from "@/components/share-button";
@@ -23,17 +23,18 @@ import CurrentPlayerBar from "@/components/current-player-bar";
 import { useDartFlight, DartFlightLayer } from "@/hooks/use-dart-flight";
 import { confettiPop } from "@/lib/confetti";
 import { EASE_OUT_EXPO } from "@/lib/motion";
-import { TEAM_COLOR_VARS, TEAM_HIGHLIGHT_CLASSES, teamColorAt } from "@/lib/team-colors";
+import { TEAM_COLOR_VARS, TEAM_HIGHLIGHT_CLASSES, TEAM_TEXT_COLORS, teamColorAt } from "@/lib/team-colors";
 
 interface CricketGameScreenProps {
   game: CricketGame;
   onGameUpdate: (game: CricketGame) => void;
   onGameEnd: (game: CricketGame) => void;
+  onLeave: () => void;
   playerCount?: number;
   isConnected?: boolean;
 }
 
-export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
+export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLeave, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
@@ -170,9 +171,10 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
     saveGame(result.game);
   };
 
+  // The save stays in place (saveGame runs after every dart), so the home
+  // screen can offer Resume. Never clear it here.
   const handleLeave = () => {
-    clearSavedGame();
-    window.location.reload();
+    onLeave();
   };
 
   const renderMarks = (count: number) => {
@@ -231,6 +233,30 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
 
     return { chartData: data, chartConfig: config, allPlayers: players, hasPoints: scored, chartYMax: yMax };
   }, [game.dartHistory, game.currentTurnDarts, game.teams]);
+
+  // Anchor each end-label to where its team's area actually tops out,
+  // nudging overlapping labels apart so close scores stay readable.
+  const endLabels = useMemo(() => {
+    const teamsToShow = isSolo ? [game.teams[0]] : game.teams.slice(0, 2);
+    const labels = teamsToShow
+      .map((team, idx) => ({
+        id: team.id,
+        idx,
+        value: team.points,
+        pct: (1 - team.points / chartYMax) * 100,
+      }))
+      .sort((a, b) => a.pct - b.pct);
+    const GAP = 10;
+    for (let i = 0; i < labels.length; i++) {
+      labels[i].pct = Math.max(4, Math.min(96, labels[i].pct));
+      if (i > 0 && labels[i].pct - labels[i - 1].pct < GAP) {
+        labels[i].pct = labels[i - 1].pct + GAP;
+      }
+    }
+    const overflow = labels.length ? labels[labels.length - 1].pct - 96 : 0;
+    if (overflow > 0) labels.forEach(l => { l.pct = Math.max(2, l.pct - overflow); });
+    return labels;
+  }, [game.teams, isSolo, chartYMax]);
 
   return (
     <main className="h-full flex flex-col overflow-hidden" style={{ touchAction: 'manipulation' }}>
@@ -414,11 +440,16 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             </div>
           )}
         </div>
-        <div className="flex flex-col justify-between shrink-0 w-8 py-2 pr-2">
-          <span className="font-mono text-xs font-bold tabular-nums text-primary">{game.teams[0].points}</span>
-          {!isSolo && (
-            <span className="font-mono text-xs font-bold tabular-nums text-chart-2">{game.teams[1].points}</span>
-          )}
+        <div className="relative shrink-0 w-8">
+          {endLabels.map((label) => (
+            <span
+              key={label.id}
+              className={`absolute right-2 -translate-y-1/2 font-mono text-xs font-bold tabular-nums ${teamColorAt(TEAM_TEXT_COLORS, label.idx)}`}
+              style={{ top: `${label.pct}%` }}
+            >
+              {label.value}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -454,7 +485,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             data-testid="button-miss"
             variant="secondary"
             size="sm"
-            className={`flex-1 min-h-10 text-muted-foreground text-xs transition-all duration-150 ${
+            className={`flex-1 min-h-11 text-muted-foreground text-xs transition-all duration-150 ${
               tappedNumber === 'miss' ? 'ring-2 ring-primary scale-105 bg-primary/20' : ''
             }`}
             disabled={isInputDisabled || dartsThrown >= 3}
@@ -470,7 +501,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={(origin) => handleBull(false, origin)}
               onLongSelect={(m, origin) => handleBull(m === 2, origin)}
-              className="min-h-10 text-xs"
+              className="min-h-11 text-xs"
               testId="button-single-bull"
             />
           </div>
@@ -482,7 +513,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={(origin) => handleBull(true, origin)}
               onLongSelect={(m, origin) => handleBull(m === 2, origin)}
-              className="min-h-10 text-xs"
+              className="min-h-11 text-xs"
               testId="button-double-bull"
             />
           </div>
@@ -520,7 +551,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               onClick={() => setMultiplier(m)}
               variant={multiplier === m ? 'default' : 'secondary'}
               size="sm"
-              className={`min-h-10 text-xs font-semibold tracking-wide ${
+              className={`min-h-11 text-xs font-semibold tracking-wide ${
                 multiplier === m ? '' : 'text-muted-foreground'
               }`}
             >
@@ -534,7 +565,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
             data-testid="button-undo"
             variant="secondary"
             size="sm"
-            className="flex-1 min-h-10 gap-1 text-xs"
+            className="flex-1 min-h-11 gap-1 text-xs"
             disabled={game.dartHistory.length === 0 || isInputDisabled}
             onClick={handleUndo}
           >
@@ -544,7 +575,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           <Button
             data-testid="button-next-player"
             size="sm"
-            className="flex-[2] min-h-10 gap-1 text-xs"
+            className="flex-[2] min-h-11 gap-1 text-xs"
             disabled={dartsThrown === 0 || isInputDisabled}
             onClick={handleNextPlayer}
           >
@@ -591,7 +622,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
       <ConfirmDialog
         open={showLeaveConfirm}
         title="Leave this game?"
-        description="Your progress is saved and you can resume later."
+        description="Your game is saved. Resume it from the home screen."
         cancelLabel="Stay"
         confirmLabel="Leave"
         onCancel={() => setShowLeaveConfirm(false)}

@@ -137,7 +137,7 @@ export default function LongPressScoreButton({
                   type="button"
                   role="menuitem"
                   onClick={() => handleSelect(m)}
-                  className="font-mono text-sm font-bold tabular-nums w-10 h-10 rounded bg-secondary text-secondary-foreground hover-elevate active-elevate-2"
+                  className="font-mono text-sm font-bold tabular-nums w-11 h-11 rounded bg-secondary text-secondary-foreground hover-elevate active-elevate-2"
                   data-testid={testId ? `${testId}-mult-${m}` : undefined}
                 >
                   {m}x

@@ -43,7 +43,7 @@ The user is rarely alone with the screen. Other players watch over their shoulde
 - Gradient text on the winner name.
 - Generic icon-in-tinted-circle as the only celebration cue.
 - Identical card grids of player stats.
-- Confetti, sparkles, "Congratulations!" toast copy.
+- Rainbow confetti, sparkles, "Congratulations!" toast copy. **Blessed exception (2026-07-17):** the scoreboard-chip pop in `client/src/lib/confetti.ts` — a sub-second burst of amber/team-color chips on counted triples and bulls, reduced-motion-aware, plays once. This exact style is permitted; anything glitterier or longer-lived is not.
 - Modal "share your victory" overlays.
 
 ## Source
