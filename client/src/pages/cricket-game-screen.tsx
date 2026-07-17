@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, Fragment, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Undo2, ChevronRight, X, Home, Settings } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis } from "recharts";
 import {
@@ -19,8 +19,11 @@ import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
 import ConfirmDialog from "@/components/confirm-dialog";
+import CurrentPlayerBar from "@/components/current-player-bar";
+import { useDartFlight, DartFlightLayer } from "@/hooks/use-dart-flight";
 import { confettiPop } from "@/lib/confetti";
-import { TEAM_COLOR_VARS, teamColorAt } from "@/lib/team-colors";
+import { EASE_OUT_EXPO } from "@/lib/motion";
+import { TEAM_COLOR_VARS, TEAM_HIGHLIGHT_CLASSES, teamColorAt } from "@/lib/team-colors";
 
 interface CricketGameScreenProps {
   game: CricketGame;
@@ -38,6 +41,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
   const [showSettings, setShowSettings] = useState(false);
   const lastDartTime = useRef(0);
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
+  const reducedMotion = useReducedMotion();
+  const { trayRef, flights, launchDart, removeFlight } = useDartFlight();
 
   const { player: currentPlayer, teamIndex: currentTeamIndex } = getCurrentPlayer(game);
   const dartsThrown = game.currentTurnDarts.length;
@@ -91,9 +96,10 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         big: target === 'B' && mult === 2,
       });
     }
+    launchDart(formatDart(result.dart), dartsThrown, teamColorAt(TEAM_COLOR_VARS, currentTeamIndex), origin);
     onGameUpdate(result.game);
     saveGame(result.game);
-  }, [game, dartsThrown, currentTeamIndex, onGameUpdate]);
+  }, [game, dartsThrown, currentTeamIndex, onGameUpdate, launchDart]);
 
   const handleNumberTap = (num: CricketNumber, origin?: { x: number; y: number }) => {
     setTappedNumber(String(num));
@@ -107,10 +113,11 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
     handleDartEntry('B', double ? 2 : 1, origin);
   };
 
-  const handleMiss = () => {
+  const handleMiss = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
     setTappedNumber('miss');
     setTimeout(() => setTappedNumber(null), 200);
-    handleDartEntry('miss', 1);
+    handleDartEntry('miss', 1, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
   };
 
   const handleUndo = () => {
@@ -257,16 +264,28 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
 
       <div className="flex border-b border-border flex-shrink-0">
         {/* Team 1 Points - Left */}
-        <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
-          currentTeamIndex === 0 ? 'bg-primary/15 ring-2 ring-inset ring-primary/50' : ''
-        }`}>
-          <div className="text-xs font-medium tracking-wider uppercase truncate text-primary"
+        <div className="relative flex flex-col items-center justify-center w-[72px] shrink-0">
+          {currentTeamIndex === 0 && (
+            <motion.div
+              layoutId="cricket-active-side"
+              className={`absolute inset-0 ${teamColorAt(TEAM_HIGHLIGHT_CLASSES, 0)}`}
+              transition={reducedMotion ? { duration: 0 } : { type: "tween", duration: 0.25, ease: EASE_OUT_EXPO }}
+              aria-hidden
+            />
+          )}
+          <div className="relative text-xs font-medium tracking-wider uppercase truncate text-primary"
             data-testid="text-team1-name"
           >
             {game.teams[0].name}
           </div>
-          <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team1-points">
-            {game.teams[0].points}
+          <div className="relative font-mono text-3xl font-bold tabular-nums" data-testid="text-team1-points">
+            <span
+              key={game.teams[0].points}
+              className="score-tick"
+              style={{ "--tick-color": `var(${teamColorAt(TEAM_COLOR_VARS, 0)})` } as React.CSSProperties}
+            >
+              {game.teams[0].points}
+            </span>
           </div>
         </div>
 
@@ -311,43 +330,39 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
 
         {/* Team 2 Points - Right */}
         {!isSolo && (
-          <div className={`flex flex-col items-center justify-center w-[72px] shrink-0 transition-all duration-300 ${
-            currentTeamIndex === 1 ? 'bg-chart-2/15 ring-2 ring-inset ring-chart-2/50' : ''
-          }`}>
-            <div className="text-xs font-medium tracking-wider uppercase truncate text-chart-2"
+          <div className="relative flex flex-col items-center justify-center w-[72px] shrink-0">
+            {currentTeamIndex === 1 && (
+              <motion.div
+                layoutId="cricket-active-side"
+                className={`absolute inset-0 ${teamColorAt(TEAM_HIGHLIGHT_CLASSES, 1)}`}
+                transition={reducedMotion ? { duration: 0 } : { type: "tween", duration: 0.25, ease: EASE_OUT_EXPO }}
+                aria-hidden
+              />
+            )}
+            <div className="relative text-xs font-medium tracking-wider uppercase truncate text-chart-2"
               data-testid="text-team2-name"
             >
               {game.teams[1].name}
             </div>
-            <div className="font-mono text-3xl font-bold tabular-nums" data-testid="text-team2-points">
-              {game.teams[1].points}
+            <div className="relative font-mono text-3xl font-bold tabular-nums" data-testid="text-team2-points">
+              <span
+                key={game.teams[1].points}
+                className="score-tick"
+                style={{ "--tick-color": `var(${teamColorAt(TEAM_COLOR_VARS, 1)})` } as React.CSSProperties}
+              >
+                {game.teams[1].points}
+              </span>
             </div>
           </div>
         )}
       </div>
 
-      <div className={`flex items-center justify-between px-3 py-2 border-b border-border/50 transition-colors duration-300 ${
-        currentTeamIndex === 0 ? 'bg-primary/10' : 'bg-chart-2/10'
-      }`}>
-        <div className="flex items-center gap-2 min-w-0">
-          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-            currentTeamIndex === 0 ? 'bg-primary' : 'bg-chart-2'
-          }`} />
-          <span className="text-sm font-medium truncate" data-testid="text-current-player">
-            {currentPlayer.name}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 shrink-0" data-testid="dart-counter">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className={`w-2.5 h-2.5 rounded-full transition-colors duration-200 ${
-                i < dartsThrown ? 'bg-primary' : 'bg-muted-foreground/20'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
+      <CurrentPlayerBar
+        turnKey={String(game.currentTurnIndex)}
+        playerName={currentPlayer.name}
+        teamIndex={currentTeamIndex}
+        dartsThrown={dartsThrown}
+      />
 
       <div aria-live="polite" className="sr-only">
         {dartsThrown > 0
@@ -407,7 +422,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
         </div>
       </div>
 
-      <div className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/10 overflow-x-auto" data-testid="dart-tray">
+      <div ref={trayRef} className="min-h-[44px] flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/10 overflow-x-auto" data-testid="dart-tray">
         <span className="text-sm text-muted-foreground/60 shrink-0 mr-1">Darts:</span>
         <AnimatePresence mode="popLayout">
           {game.currentTurnDarts.map((dart, idx) => (
@@ -419,7 +434,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
               transition={{ duration: 0.15 }}
               onClick={() => handleRemoveDart(idx)}
               aria-label={`Remove dart ${formatDart(dart)}`}
-              className="flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
+              className="chip-flash flex items-center gap-1.5 bg-secondary rounded-md px-3 py-1.5 min-h-10 text-sm font-mono font-semibold text-secondary-foreground shrink-0 hover-elevate active-elevate-2"
+              style={{ "--flash-color": `var(${teamColorAt(TEAM_COLOR_VARS, currentTeamIndex)})` } as React.CSSProperties}
               data-testid={`button-dart-chip-${idx}`}
             >
               {formatDart(dart)}
@@ -472,11 +488,15 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           </div>
         </div>
 
-        <div className="grid grid-cols-6 gap-1.5">
+        {/* While 2x/3x is armed, the pad tints and labels show what will
+            actually be recorded (D20/T20). */}
+        <div className={`grid grid-cols-6 gap-1.5 rounded-md transition-all duration-150 ${
+          multiplier > 1 ? 'ring-1 ring-primary/40 bg-primary/10' : ''
+        }`}>
           {([20, 19, 18, 17, 16, 15] as CricketNumber[]).map((num) => (
             <LongPressScoreButton
               key={num}
-              label={num}
+              label={multiplier === 1 ? num : `${multiplier === 2 ? 'D' : 'T'}${num}`}
               highlighted={tappedNumber === String(num)}
               disabled={isInputDisabled || dartsThrown >= 3}
               onTap={(origin) => handleNumberTap(num, origin)}
@@ -533,6 +553,8 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, playe
           </Button>
         </div>
       </footer>
+
+      <DartFlightLayer flights={flights} onDone={removeFlight} />
 
       <ConfirmDialog
         open={pendingWin !== null}
