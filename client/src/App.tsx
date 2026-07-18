@@ -35,6 +35,9 @@ function MainApp() {
   // Real-time sync: active whenever there's a game in progress
   const gameId = game?.status === 'in_progress' ? game.id : null;
   const { isConnected, playerCount, sendUpdate } = useGameSync(gameId, (remoteGame) => {
+    // Only accept updates for the game on screen — a stale socket must never
+    // swap the active game (or overwrite its save) with a previous one.
+    if (remoteGame.id !== gameId) return;
     setGame(remoteGame);
     // Keep localStorage fresh with remote updates
     saveGame(remoteGame);
@@ -326,6 +329,7 @@ function SharedGameView() {
   const gameLoaded = useRef(false);
 
   const { isConnected, playerCount, sendUpdate } = useGameSync(gameId ?? null, (remoteGame) => {
+    if (!gameId || remoteGame.id !== gameId) return;
     gameLoaded.current = true;
     setGame(remoteGame);
     setLoading(false);
