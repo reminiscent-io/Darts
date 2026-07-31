@@ -11,4 +11,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: 'game-state'; game: Record<string, unknown> }
   | { type: 'player-count'; count: number }
+  // Sent when a player ends the game for everyone: the game is gone from the
+  // server and every device in the room should drop its copy.
+  | { type: 'game-ended'; gameId: string }
   | { type: 'error'; message: string };

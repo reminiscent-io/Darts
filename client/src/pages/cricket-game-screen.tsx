@@ -19,6 +19,7 @@ import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
 import ConfirmDialog from "@/components/confirm-dialog";
+import ExitGameDialog from "@/components/exit-game-dialog";
 import CurrentPlayerBar from "@/components/current-player-bar";
 import { useDartFlight, DartFlightLayer } from "@/hooks/use-dart-flight";
 import { confettiPop } from "@/lib/confetti";
@@ -30,15 +31,16 @@ interface CricketGameScreenProps {
   onGameUpdate: (game: CricketGame) => void;
   onGameEnd: (game: CricketGame) => void;
   onLeave: () => void;
+  onEndGame: () => void;
   playerCount?: number;
   isConnected?: boolean;
 }
 
-export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLeave, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
+export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLeave, onEndGame, playerCount = 0, isConnected = false }: CricketGameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const lastDartTime = useRef(0);
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
@@ -171,10 +173,14 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLea
     saveGame(result.game);
   };
 
-  // The save stays in place (saveGame runs after every dart), so the home
-  // screen can offer Resume. Never clear it here.
   const handleLeave = () => {
+    setShowExitDialog(false);
     onLeave();
+  };
+
+  const handleEndGame = () => {
+    setShowExitDialog(false);
+    onEndGame();
   };
 
   const renderMarks = (count: number) => {
@@ -266,7 +272,7 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLea
           size="icon"
           className="text-muted-foreground"
           aria-label="Leave game"
-          onClick={() => setShowLeaveConfirm(true)}
+          onClick={() => setShowExitDialog(true)}
         >
           <Home className="w-4 h-4" />
         </Button>
@@ -619,14 +625,12 @@ export default function CricketGameScreen({ game, onGameUpdate, onGameEnd, onLea
         confirmTestId="button-confirm-undo"
       />
 
-      <ConfirmDialog
-        open={showLeaveConfirm}
-        title="Leave this game?"
-        description="Your game is saved. Resume it from the home screen."
-        cancelLabel="Stay"
-        confirmLabel="Leave"
-        onCancel={() => setShowLeaveConfirm(false)}
-        onConfirm={handleLeave}
+      <ExitGameDialog
+        open={showExitDialog}
+        othersConnected={Math.max(0, playerCount - 1)}
+        onCancel={() => setShowExitDialog(false)}
+        onLeave={handleLeave}
+        onEndGame={handleEndGame}
       />
 
       <GameSettingsSheet

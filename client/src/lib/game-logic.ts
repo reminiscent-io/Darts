@@ -392,7 +392,13 @@ const STORAGE_KEYS = {
   game: 'darts-game',
   history: 'darts-history',
   players: 'darts-players',
+  left: 'darts-left-games',
 };
+
+// How many left-game ids to remember. /api/games/active returns the newest
+// in-progress game on the server, so without this list a game you walked away
+// from would keep coming back the next time the home screen mounts.
+const MAX_LEFT_GAMES = 20;
 
 const OLD_STORAGE_KEYS = {
   game: 'cricket-darts-game',
@@ -486,8 +492,16 @@ export async function loadGameFromDb(): Promise<Game | null> {
     if (!res.ok) return null;
     const data = await res.json();
     if (!data) return null;
-    localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(data));
-    return data as Game;
+    const remote = data as Game;
+    // Games this device walked away from stay on the server for the other
+    // players, but they must never be pulled back in here.
+    if (hasLeftGame(remote.id)) return null;
+    // A different game already in progress locally wins: /api/games/active is
+    // global, so another device's game must not clobber this one's save.
+    const local = loadGame();
+    if (local && local.id !== remote.id && local.status === 'in_progress') return null;
+    localStorage.setItem(STORAGE_KEYS.game, JSON.stringify(remote));
+    return remote;
   } catch {
     return null;
   }
@@ -509,8 +523,63 @@ export function clearSavedGame(): void {
   const game = loadGame();
   localStorage.removeItem(STORAGE_KEYS.game);
   if (game) {
+    markGameLeft(game.id);
     fetch(`/api/games/${game.id}`, { method: 'DELETE' }).catch(() => {});
   }
+}
+
+// --- Leaving vs. ending a game ---
+
+function loadLeftGames(): string[] {
+  const data = localStorage.getItem(STORAGE_KEYS.left);
+  if (!data) return [];
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function markGameLeft(gameId: string): void {
+  const ids = loadLeftGames().filter(id => id !== gameId);
+  ids.push(gameId);
+  if (ids.length > MAX_LEFT_GAMES) ids.splice(0, ids.length - MAX_LEFT_GAMES);
+  localStorage.setItem(STORAGE_KEYS.left, JSON.stringify(ids));
+}
+
+export function hasLeftGame(gameId: string): boolean {
+  return loadLeftGames().includes(gameId);
+}
+
+/**
+ * Step out of a game on this device only. The game stays on the server so the
+ * other players keep going and the share link still works, but it stops being
+ * this browser's game: no resume prompt, no reload from /api/games/active.
+ *
+ * Pass a gameId to leave a specific game (the local save is only dropped when
+ * it holds that same game); omit it to leave whatever is currently saved.
+ */
+export function leaveGameLocally(gameId?: string): void {
+  const saved = loadGame();
+  const targetId = gameId ?? saved?.id;
+  if (!targetId) return;
+  if (saved && saved.id === targetId) {
+    localStorage.removeItem(STORAGE_KEYS.game);
+  }
+  markGameLeft(targetId);
+}
+
+/**
+ * End a game for everyone in it. Deletes the game from the server, which
+ * broadcasts `game-ended` to every other device in the room, and clears it
+ * from this device.
+ */
+export async function endGameForEveryone(gameId: string): Promise<void> {
+  leaveGameLocally(gameId);
+  try {
+    await fetch(`/api/games/${gameId}`, { method: 'DELETE' });
+  } catch { /* the local copy is gone either way */ }
 }
 
 // --- Game History ---
