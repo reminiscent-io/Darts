@@ -16,7 +16,7 @@ export interface PlayerRef {
   teamIndex: number;
 }
 
-export type AppScreen = 'home' | 'setup' | 'game' | 'post-game' | 'history';
+export type AppScreen = 'home' | 'setup' | 'game' | 'post-game' | 'history' | 'players';
 
 // --- DartEntry (unified, game-specific fields optional) ---
 export interface DartEntry {

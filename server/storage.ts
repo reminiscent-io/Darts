@@ -3,7 +3,7 @@ import { db } from "./db";
 import {
   games, gameSummaries, playerNames, shots,
   type InsertGame, type SelectGame,
-  type InsertGameSummary, type SelectGameSummary,
+  type SelectGameSummary, type GameSummaryRecord, type GameSummaryTeam,
   type InsertShot, type SelectShot,
 } from "@shared/schema";
 
@@ -63,14 +63,66 @@ function extractShotRows(gameState: GameStateForShots): InsertShot[] {
   return rows;
 }
 
+/**
+ * Rows written before summaries carried a `teams` array hold a fixed two-team
+ * cricket game across the legacy per-team columns. Read both shapes back as
+ * the one record the client understands.
+ */
+function toSummaryRecord(row: SelectGameSummary): GameSummaryRecord {
+  const teams: GameSummaryTeam[] = row.teams ?? [
+    {
+      name: row.team1Name ?? "Team 1",
+      players: row.team1Players ?? [],
+      score: row.team1Score ?? 0,
+      isWinner: row.winnerTeamIndex === 0,
+    },
+    {
+      name: row.team2Name ?? "Team 2",
+      players: row.team2Players ?? [],
+      score: row.team2Score ?? 0,
+      isWinner: row.winnerTeamIndex === 1,
+    },
+  ];
+  return {
+    id: row.id,
+    gameType: row.gameType === "x01" ? "x01" : "cricket",
+    teams,
+    totalDarts: row.totalDarts,
+    completedAt: row.completedAt.toISOString(),
+    ...(row.startingScore != null ? { startingScore: row.startingScore } : {}),
+  };
+}
+
+function toSummaryRow(s: GameSummaryRecord): typeof gameSummaries.$inferInsert {
+  const winnerIndex = s.teams.findIndex((t) => t.isWinner);
+  const [t1, t2] = s.teams;
+  const completedAt = new Date(s.completedAt);
+  return {
+    id: s.id,
+    gameType: s.gameType,
+    teams: s.teams,
+    startingScore: s.startingScore ?? null,
+    team1Name: t1?.name ?? null,
+    team2Name: t2?.name ?? null,
+    team1Players: t1?.players ?? null,
+    team2Players: t2?.players ?? null,
+    team1Score: t1?.score ?? 0,
+    team2Score: t2?.score ?? 0,
+    winnerName: winnerIndex >= 0 ? s.teams[winnerIndex].name : null,
+    winnerTeamIndex: winnerIndex >= 0 ? winnerIndex : null,
+    totalDarts: s.totalDarts,
+    completedAt: Number.isNaN(completedAt.getTime()) ? new Date() : completedAt,
+  };
+}
+
 export interface IStorage {
   getGame(id: string): Promise<SelectGame | undefined>;
   getActiveGame(): Promise<SelectGame | undefined>;
   upsertGame(game: InsertGame): Promise<SelectGame>;
   deleteGame(id: string): Promise<void>;
 
-  getGameSummaries(limit?: number): Promise<SelectGameSummary[]>;
-  createGameSummary(summary: InsertGameSummary): Promise<SelectGameSummary>;
+  getGameSummaries(limit?: number): Promise<GameSummaryRecord[]>;
+  createGameSummary(summary: GameSummaryRecord): Promise<GameSummaryRecord>;
   clearGameSummaries(): Promise<void>;
 
   getPlayerNames(): Promise<string[]>;
@@ -116,24 +168,26 @@ export class DatabaseStorage implements IStorage {
     await db.delete(games).where(eq(games.id, id));
   }
 
-  async getGameSummaries(limit = 50): Promise<SelectGameSummary[]> {
-    return db
+  async getGameSummaries(limit = 50): Promise<GameSummaryRecord[]> {
+    const rows = await db
       .select()
       .from(gameSummaries)
       .orderBy(desc(gameSummaries.completedAt))
       .limit(limit);
+    return rows.map(toSummaryRecord);
   }
 
-  async createGameSummary(summary: InsertGameSummary): Promise<SelectGameSummary> {
+  async createGameSummary(summary: GameSummaryRecord): Promise<GameSummaryRecord> {
+    const values = toSummaryRow(summary);
     const [row] = await db
       .insert(gameSummaries)
-      .values(summary)
+      .values(values)
       .onConflictDoUpdate({
         target: gameSummaries.id,
-        set: summary,
+        set: values,
       })
       .returning();
-    return row;
+    return toSummaryRecord(row);
   }
 
   async clearGameSummaries(): Promise<void> {

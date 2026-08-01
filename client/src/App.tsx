@@ -22,6 +22,7 @@ const CricketPostGameScreen = lazy(() => import("@/pages/cricket-post-game-scree
 const X01GameScreen = lazy(() => import("@/pages/x01-game-screen"));
 const X01PostGameScreen = lazy(() => import("@/pages/x01-post-game-screen"));
 const HistoryScreen = lazy(() => import("@/pages/history-screen"));
+const PlayersScreen = lazy(() => import("@/pages/players-screen"));
 
 const screenFallback = (
   <div className="h-full flex items-center justify-center">
@@ -214,6 +215,10 @@ function MainApp() {
     setScreen('history');
   }, []);
 
+  const handleViewPlayers = useCallback(() => {
+    setScreen('players');
+  }, []);
+
   const handleBackToHome = useCallback(() => {
     setScreen('home');
   }, []);
@@ -289,7 +294,12 @@ function MainApp() {
             transition={{ duration: 0.2 }}
             className="h-full"
           >
-            <HomeScreen onNewGame={handleNewGame} onResumeGame={handleResumeGame} onViewHistory={handleViewHistory} />
+            <HomeScreen
+              onNewGame={handleNewGame}
+              onResumeGame={handleResumeGame}
+              onViewHistory={handleViewHistory}
+              onViewPlayers={handleViewPlayers}
+            />
           </motion.div>
         )}
 
@@ -345,6 +355,21 @@ function MainApp() {
           >
             <Suspense fallback={screenFallback}>
               <HistoryScreen onBack={handleBackToHome} />
+            </Suspense>
+          </motion.div>
+        )}
+
+        {screen === 'players' && (
+          <motion.div
+            key="players"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            className="h-full"
+          >
+            <Suspense fallback={screenFallback}>
+              <PlayersScreen onBack={handleBackToHome} />
             </Suspense>
           </motion.div>
         )}
