@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { broadcastGameEnded } from "./ws";
+import { gameSummaryRecordSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -47,17 +48,20 @@ export async function registerRoutes(
     res.json({ ok: true });
   });
 
-  app.get("/api/history", async (_req, res) => {
-    const summaries = await storage.getGameSummaries();
+  app.get("/api/history", async (req, res) => {
+    const limit = req.query.limit
+      ? Math.min(Math.max(Number(req.query.limit) || 50, 1), 1000)
+      : 50;
+    const summaries = await storage.getGameSummaries(limit);
     res.json(summaries);
   });
 
   app.post("/api/history", async (req, res) => {
-    const summary = req.body;
-    if (!summary.id) {
-      return res.status(400).json({ message: "Missing id" });
+    const parsed = gameSummaryRecordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid game summary" });
     }
-    await storage.createGameSummary(summary);
+    await storage.createGameSummary(parsed.data);
     res.json({ ok: true });
   });
 

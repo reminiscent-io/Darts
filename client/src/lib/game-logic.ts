@@ -647,6 +647,29 @@ export async function loadGameHistoryFromDb(): Promise<GameSummary[]> {
   }
 }
 
+/**
+ * History for the stats screens: reaches past the MAX_HISTORY window the
+ * history screen keeps, and deliberately does not write back to localStorage
+ * (a deep read shouldn't reshape what the history screen shows).
+ */
+export async function loadGameHistoryForStats(limit = 500): Promise<GameSummary[]> {
+  const local = loadGameHistory();
+  try {
+    const res = await fetch(`/api/history?limit=${limit}`);
+    if (!res.ok) return local;
+    const data = await res.json();
+    const summaries = (data as GameSummary[]).map((s: GameSummary) => ({
+      ...s,
+      completedAt: typeof s.completedAt === 'string' ? s.completedAt : new Date(s.completedAt).toISOString(),
+    }));
+    const serverIds = new Set(summaries.map(s => s.id));
+    return [...summaries, ...local.filter(s => !serverIds.has(s.id))]
+      .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+  } catch {
+    return local;
+  }
+}
+
 export function clearGameHistory(): void {
   localStorage.removeItem(STORAGE_KEYS.history);
   fetch('/api/history', { method: 'DELETE' }).catch(() => {});

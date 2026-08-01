@@ -2,15 +2,16 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { loadGame, loadGameFromDb, loadGameHistory, loadGameHistoryFromDb } from "@/lib/game-logic";
 import { motion } from "framer-motion";
-import { Target, Play, RotateCcw, History, Gamepad2, Users, Share2 } from "lucide-react";
+import { Target, Play, RotateCcw, History, Gamepad2, Users, Share2, BarChart3 } from "lucide-react";
 
 interface HomeScreenProps {
   onNewGame: () => void;
   onResumeGame: () => void;
   onViewHistory: () => void;
+  onViewPlayers: () => void;
 }
 
-export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: HomeScreenProps) {
+export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory, onViewPlayers }: HomeScreenProps) {
   const [savedGame, setSavedGame] = useState(() => {
     const saved = loadGame();
     return saved && saved.status === 'in_progress' ? saved : null;
@@ -83,11 +84,28 @@ export default function HomeScreen({ onNewGame, onResumeGame, onViewHistory }: H
           </motion.div>
         )}
 
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <Button
+            data-testid="button-player-stats"
+            variant="ghost"
+            size="lg"
+            className="w-full text-base gap-2 text-muted-foreground"
+            onClick={onViewPlayers}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Player Stats
+          </Button>
+        </motion.div>
+
         {hasHistory && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
+            transition={{ duration: 0.3, delay: 0.45 }}
           >
             <Button
               data-testid="button-game-history"

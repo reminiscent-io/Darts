@@ -149,3 +149,27 @@ The shots endpoint returns rows sorted by `thrownAt DESC`. Before computing roun
 ## Open decisions — resolved
 - Shareable per-player URL: **No** for v1 — use screen-state navigation, consistent with the rest of the game flow.
 - Minimum games to qualify: **3** (tunable constant).
+
+## Implementation notes (2026-08-01)
+
+Built as specified, with four deviations worth recording.
+
+1. **`game_summaries` had to be repaired first.** The spec assumed `/api/history`
+   worked. It didn't: the client posts `{ gameType, teams[] }` while the table
+   demanded `team1_name` / `winner_name` / `winner_team_index` NOT NULL, so every
+   insert failed and the endpoint always returned an empty list. Without it there
+   is no win/loss data at all. Fixed additively — new `game_type`, `teams`,
+   `starting_score` columns, the legacy per-team columns relaxed to nullable, and
+   `storage.ts` maps both shapes to one record so pre-existing rows still read.
+   Migration `0001`; needs `npm run db:push`.
+2. **Head-to-head comparison is in**, though the spec listed it as a non-goal:
+   comparing players across game types was an explicit later request. Adds
+   `computeComparison` / `computeHeadToHead` and a Compare tab.
+3. **`selectedPlayer` lives in `players-screen.tsx`, not `App.tsx`.** Keeping the
+   whole Players area's navigation local means a comparison selection survives a
+   detour into a player's detail, and `App.tsx` gains one screen instead of two.
+4. **Charts are hand-rolled SVG** (`trend-chart.tsx`) rather than recharts. The
+   stats chunk stays free of the chart library — 10 kB gzipped for the whole area.
+
+Known limits, unchanged from the spec: the overview fans out one shots fetch per
+player, and a career past 5000 darts is truncated by the endpoint cap.
