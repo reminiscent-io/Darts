@@ -77,6 +77,18 @@ async function handleJoin(ws: WebSocket, gameId: string) {
   broadcastPlayerCount(gameId);
 }
 
+// A player ended the game for everyone (DELETE /api/games/:id). Tell every
+// device in the room to drop it, then tear the room down.
+export function broadcastGameEnded(gameId: string) {
+  const room = rooms.get(gameId);
+  if (!room) return;
+
+  broadcast(gameId, { type: "game-ended", gameId });
+  // Drop the room itself; clients are navigating away and removeFromRoom
+  // tolerates a socket whose room is already gone.
+  rooms.delete(gameId);
+}
+
 async function handleGameUpdate(ws: WebSocket, gameId: string, game: Record<string, unknown>) {
   // Persist to database
   try {

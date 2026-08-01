@@ -9,7 +9,8 @@ interface GameSyncState {
 
 export function useGameSync(
   gameId: string | null,
-  onRemoteUpdate: (game: Game) => void
+  onRemoteUpdate: (game: Game) => void,
+  onGameEnded?: (gameId: string) => void
 ): GameSyncState {
   const [isConnected, setIsConnected] = useState(false);
   const [playerCount, setPlayerCount] = useState(0);
@@ -18,9 +19,15 @@ export function useGameSync(
   const reconnectAttempt = useRef(0);
   const onRemoteUpdateRef = useRef(onRemoteUpdate);
   onRemoteUpdateRef.current = onRemoteUpdate;
+  const onGameEndedRef = useRef(onGameEnded);
+  onGameEndedRef.current = onGameEnded;
+  // Set once a game has been ended for everyone, so the socket stops trying to
+  // rejoin a room the server has torn down.
+  const endedRef = useRef(false);
 
   const connect = useCallback(() => {
     if (!gameId) return;
+    const joinedGameId = gameId;
 
     // Clean up existing connection
     if (wsRef.current) {
@@ -40,7 +47,11 @@ export function useGameSync(
     };
 
     ws.onmessage = (event) => {
-      let msg: { type: string; game?: unknown; count?: number; message?: string };
+      // A socket that has already been replaced or disposed must not feed
+      // state back into the app — leaving a game would undo itself.
+      if (wsRef.current !== ws) return;
+
+      let msg: { type: string; game?: unknown; count?: number; message?: string; gameId?: string };
       try {
         msg = JSON.parse(event.data);
       } catch {
@@ -58,6 +69,17 @@ export function useGameSync(
             setPlayerCount(msg.count);
           }
           break;
+        case "game-ended":
+          // Another player ended the game. The server has already dropped it,
+          // so stop reconnecting into a room that no longer exists.
+          endedRef.current = true;
+          clearTimeout(reconnectTimer.current);
+          if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+          }
+          onGameEndedRef.current?.(msg.gameId ?? joinedGameId);
+          break;
         case "error":
           console.warn("[game-sync] Server error:", msg.message);
           break;
@@ -65,8 +87,15 @@ export function useGameSync(
     };
 
     ws.onclose = () => {
+      // Closes arrive asynchronously, so a socket we deliberately dropped
+      // (leaving the game, or reconnecting) lands here after wsRef moved on.
+      // Reconnecting it would rejoin the game the user just walked away from.
+      if (wsRef.current !== ws) return;
+
       setIsConnected(false);
       wsRef.current = null;
+
+      if (endedRef.current) return;
 
       // Auto-reconnect with exponential backoff
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempt.current), 10000);
@@ -86,6 +115,7 @@ export function useGameSync(
       return;
     }
 
+    endedRef.current = false;
     connect();
 
     return () => {

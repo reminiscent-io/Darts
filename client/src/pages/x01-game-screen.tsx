@@ -18,6 +18,7 @@ import ShareButton from "@/components/share-button";
 import LongPressScoreButton from "@/components/long-press-score-button";
 import GameSettingsSheet from "@/components/game-settings-sheet";
 import ConfirmDialog from "@/components/confirm-dialog";
+import ExitGameDialog from "@/components/exit-game-dialog";
 import CurrentPlayerBar from "@/components/current-player-bar";
 import { useDartFlight, DartFlightLayer } from "@/hooks/use-dart-flight";
 import { getCheckoutRoute } from "@/lib/checkout";
@@ -33,16 +34,17 @@ interface X01GameScreenProps {
   onGameUpdate: (game: X01Game) => void;
   onGameEnd: (game: X01Game) => void;
   onLeave: () => void;
+  onEndGame: () => void;
   playerCount?: number;
   isConnected?: boolean;
 }
 
-export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, playerCount = 0, isConnected = false }: X01GameScreenProps) {
+export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, onEndGame, playerCount = 0, isConnected = false }: X01GameScreenProps) {
   const [multiplier, setMultiplier] = useState<Multiplier>(1);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [undoPrevPlayerName, setUndoPrevPlayerName] = useState("");
   const [bustFlash, setBustFlash] = useState(false);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const lastDartTime = useRef(0);
   const [tappedNumber, setTappedNumber] = useState<string | null>(null);
@@ -190,6 +192,16 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, 
     saveGame(result.game);
   };
 
+  const handleLeave = () => {
+    setShowExitDialog(false);
+    onLeave();
+  };
+
+  const handleEndGame = () => {
+    setShowExitDialog(false);
+    onEndGame();
+  };
+
   const isInputDisabled = game.status === 'completed' || pendingWin !== null;
   const isIndividual = game.mode === 'individual';
 
@@ -273,7 +285,7 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, 
           size="icon"
           className="text-muted-foreground"
           aria-label="Leave game"
-          onClick={() => setShowLeaveConfirm(true)}
+          onClick={() => setShowExitDialog(true)}
         >
           <Home className="w-4 h-4" />
         </Button>
@@ -612,14 +624,12 @@ export default function X01GameScreen({ game, onGameUpdate, onGameEnd, onLeave, 
         confirmTestId="button-confirm-undo"
       />
 
-      <ConfirmDialog
-        open={showLeaveConfirm}
-        title="Leave this game?"
-        description="Your game is saved. Resume it from the home screen."
-        cancelLabel="Stay"
-        confirmLabel="Leave"
-        onCancel={() => setShowLeaveConfirm(false)}
-        onConfirm={onLeave}
+      <ExitGameDialog
+        open={showExitDialog}
+        othersConnected={Math.max(0, playerCount - 1)}
+        onCancel={() => setShowExitDialog(false)}
+        onLeave={handleLeave}
+        onEndGame={handleEndGame}
       />
 
       <GameSettingsSheet

@@ -5,8 +5,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
 import {
   createCricketGame, createSoloCricketGame, loadGame, loadGameFromDb, saveGame, clearSavedGame,
-  saveGameToHistory, savePlayerNames, migrateStorage, loadGameById
+  saveGameToHistory, savePlayerNames, migrateStorage, loadGameById,
+  leaveGameLocally, endGameForEveryone
 } from "@/lib/game-logic";
+import { toast } from "@/hooks/use-toast";
 import { createX01Game } from "@/lib/x01-game-logic";
 import { useGameSync } from "@/hooks/use-game-sync";
 import HomeScreen from "@/pages/home-screen";
@@ -32,13 +34,31 @@ function MainApp() {
   const [screen, setScreen] = useState<AppScreen>('home');
   const [game, setGame] = useState<Game | null>(null);
 
+  // Mirrors `game` for callbacks that fire outside React's render flow.
+  const gameRef = useRef<Game | null>(null);
+  gameRef.current = game;
+
   // Real-time sync: active whenever there's a game in progress
   const gameId = game?.status === 'in_progress' ? game.id : null;
-  const { isConnected, playerCount, sendUpdate } = useGameSync(gameId, (remoteGame) => {
-    setGame(remoteGame);
-    // Keep localStorage fresh with remote updates
-    saveGame(remoteGame);
-  });
+  const { isConnected, playerCount, sendUpdate } = useGameSync(
+    gameId,
+    (remoteGame) => {
+      setGame(remoteGame);
+      // Keep localStorage fresh with remote updates
+      saveGame(remoteGame);
+    },
+    (endedGameId) => {
+      // Someone else hit "End game for everyone".
+      leaveGameLocally(endedGameId);
+      if (gameRef.current?.id !== endedGameId) return;
+      setGame(null);
+      setScreen('home');
+      toast({
+        title: "Game ended",
+        description: "Another player ended this game for everyone.",
+      });
+    },
+  );
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -61,6 +81,10 @@ function MainApp() {
   }, []);
 
   const handleStartGame = useCallback((config: GameSetupConfig) => {
+    // Whatever was saved before is not this game: release it so it can't be
+    // pulled back in from the server the next time the home screen loads.
+    leaveGameLocally();
+
     let newGame: Game;
 
     if (config.gameType === 'cricket') {
@@ -119,6 +143,8 @@ function MainApp() {
   const handleRematch = useCallback(() => {
     if (!game) return;
 
+    leaveGameLocally();
+
     let newGame: Game;
     if (game.gameType === 'cricket') {
       const cg = game as CricketGame;
@@ -167,11 +193,22 @@ function MainApp() {
     setScreen('home');
   }, []);
 
-  // Leaving mid-game keeps the save so the home screen can offer Resume.
+  // Leave: step out on this device only. The game stays on the server for the
+  // other players (and its share link), but it stops following this browser
+  // around — no resume prompt, no reload from /api/games/active.
   const handleLeaveGame = useCallback(() => {
+    if (game) leaveGameLocally(game.id);
     setGame(null);
     setScreen('home');
-  }, []);
+  }, [game]);
+
+  // End game: kill it for everyone. The server deletes it and tells every other
+  // device in the room to drop it too.
+  const handleEndGameForEveryone = useCallback(() => {
+    if (game) endGameForEveryone(game.id);
+    setGame(null);
+    setScreen('home');
+  }, [game]);
 
   const handleViewHistory = useCallback(() => {
     setScreen('history');
@@ -199,6 +236,7 @@ function MainApp() {
           onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
           onGameEnd={handleGameEnd as (g: CricketGame) => void}
           onLeave={handleLeaveGame}
+          onEndGame={handleEndGameForEveryone}
           playerCount={playerCount}
           isConnected={isConnected}
         />
@@ -210,6 +248,7 @@ function MainApp() {
         onGameUpdate={handleGameUpdate as (g: X01Game) => void}
         onGameEnd={handleGameEnd as (g: X01Game) => void}
         onLeave={handleLeaveGame}
+        onEndGame={handleEndGameForEveryone}
         playerCount={playerCount}
         isConnected={isConnected}
       />
@@ -322,15 +361,26 @@ function SharedGameView() {
   const [game, setGame] = useState<Game | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [gameEnded, setGameEnded] = useState(false);
 
   const gameLoaded = useRef(false);
 
-  const { isConnected, playerCount, sendUpdate } = useGameSync(gameId ?? null, (remoteGame) => {
-    gameLoaded.current = true;
-    setGame(remoteGame);
-    setLoading(false);
-    setError(null);
-  });
+  const { isConnected, playerCount, sendUpdate } = useGameSync(
+    gameId ?? null,
+    (remoteGame) => {
+      gameLoaded.current = true;
+      setGame(remoteGame);
+      setLoading(false);
+      setError(null);
+    },
+    (endedGameId) => {
+      leaveGameLocally(endedGameId);
+      setGame(null);
+      setLoading(false);
+      setGameEnded(true);
+      setError("This game was ended by another player.");
+    },
+  );
 
   // Load game initially via HTTP with retries.
   // The host's saveGameToDb is fire-and-forget, so when a recipient opens
@@ -389,6 +439,19 @@ function SharedGameView() {
     sendUpdate(finalGame);
   }, [sendUpdate]);
 
+  // Following a shared link caches the game locally (saveGame above), so
+  // leaving has to release it or this device would offer to resume someone
+  // else's game from its home screen.
+  const handleLeave = useCallback(() => {
+    if (gameId) leaveGameLocally(gameId);
+    setLocation("/");
+  }, [gameId, setLocation]);
+
+  const handleEndGameForEveryone = useCallback(() => {
+    if (gameId) endGameForEveryone(gameId);
+    setLocation("/");
+  }, [gameId, setLocation]);
+
   if (loading) {
     return (
       <div className="h-full w-full max-w-lg mx-auto relative bg-background flex items-center justify-center">
@@ -404,8 +467,14 @@ function SharedGameView() {
     return (
       <div className="h-full w-full max-w-lg mx-auto relative bg-background flex items-center justify-center">
         <div className="text-center space-y-3 px-6">
-          <p className="text-lg font-semibold text-foreground">Game not found</p>
-          <p className="text-sm text-muted-foreground">This game may have ended or the link may be invalid.</p>
+          <p className="text-lg font-semibold text-foreground">
+            {gameEnded ? "Game ended" : "Game not found"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {gameEnded
+              ? "Another player ended this game for everyone."
+              : "This game may have ended or the link may be invalid."}
+          </p>
           <button
             onClick={() => setLocation("/")}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium"
@@ -426,7 +495,8 @@ function SharedGameView() {
             game={game as CricketGame}
             onGameUpdate={handleGameUpdate as (g: CricketGame) => void}
             onGameEnd={handleGameEnd as (g: CricketGame) => void}
-            onLeave={() => setLocation("/")}
+            onLeave={handleLeave}
+            onEndGame={handleEndGameForEveryone}
             playerCount={playerCount}
             isConnected={isConnected}
           />
@@ -435,7 +505,8 @@ function SharedGameView() {
             game={game as X01Game}
             onGameUpdate={handleGameUpdate as (g: X01Game) => void}
             onGameEnd={handleGameEnd as (g: X01Game) => void}
-            onLeave={() => setLocation("/")}
+            onLeave={handleLeave}
+            onEndGame={handleEndGameForEveryone}
             playerCount={playerCount}
             isConnected={isConnected}
           />

@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { broadcastGameEnded } from "./ws";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -33,8 +34,16 @@ export async function registerRoutes(
     res.json(game.gameState);
   });
 
+  // Ends the game for everyone: the row goes away and every device still in
+  // the game's room is told to drop it.
   app.delete("/api/games/:id", async (req, res) => {
+    const existing = await storage.getGame(req.params.id);
     await storage.deleteGame(req.params.id);
+    // Clearing a finished game leaves anyone still on its post-game screen
+    // alone; only killing a live game boots the other devices out.
+    if (existing?.status !== "completed") {
+      broadcastGameEnded(req.params.id);
+    }
     res.json({ ok: true });
   });
 
