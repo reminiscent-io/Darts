@@ -3,6 +3,7 @@
 // between them doesn't refetch.
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, BarChart3, RefreshCw, Users, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,19 @@ type StatsView = "boards" | "compare";
 
 const MAX_COMPARE = 4;
 const EASE_OUT_QUINT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+/**
+ * Wouter hands back a `decodeURI`-decoded path, which still leaves reserved
+ * characters escaped. Decode the rest, and fall back to the raw segment for a
+ * name that isn't valid percent-encoding at all (someone called "100%").
+ */
+function decodeName(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
 
 function Podium({
   rows,
@@ -89,9 +103,41 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
   const [bundle, setBundle] = useState<StatsBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [view, setView] = useState<StatsView>("boards");
-  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
-  const [compareWith, setCompareWith] = useState<string[]>([]);
+  const [location, navigate] = useLocation();
+  const search = useSearch();
+
+  // The URL is the state: /players, /players/compare?with=A,B, /players/<name>.
+  const segment = location.startsWith("/players/") ? location.slice("/players/".length) : "";
+  const isCompare = segment === "compare";
+  const selectedPlayer = !isCompare && segment ? decodeName(segment) : null;
+  const view: StatsView = isCompare ? "compare" : "boards";
+
+  const compareWith = useMemo(() => {
+    const raw = new URLSearchParams(search).get("with");
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map(name => name.trim())
+      .filter(Boolean)
+      .slice(0, MAX_COMPARE);
+  }, [search]);
+
+  const showBoards = useCallback(() => navigate("/players"), [navigate]);
+
+  const showPlayer = useCallback(
+    (name: string) => navigate(`/players/${encodeURIComponent(name)}`),
+    [navigate],
+  );
+
+  // Picking chips replaces the entry so Back leaves the compare view rather
+  // than stepping back through every selection.
+  const showCompare = useCallback(
+    (names: string[], replace = false) => {
+      const query = names.length > 0 ? `?with=${names.map(encodeURIComponent).join(",")}` : "";
+      navigate(`/players/compare${query}`, { replace });
+    },
+    [navigate],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,17 +177,20 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
   const selected = selectedPlayer
     ? dashboards.find(d => d.name === selectedPlayer) ?? null
     : null;
+  // A link to someone who has never appeared in a game.
+  const playerNotFound = !loading && !failed && selectedPlayer !== null && selected === null;
 
   const togglePlayer = (name: string) => {
-    setCompareWith(current => {
-      if (current.includes(name)) return current.filter(n => n !== name);
-      if (current.length >= MAX_COMPARE) return current;
-      return [...current, name];
-    });
+    const next = compareWith.includes(name)
+      ? compareWith.filter(n => n !== name)
+      : compareWith.length >= MAX_COMPARE
+        ? compareWith
+        : [...compareWith, name];
+    showCompare(next, true);
   };
 
   const handleBack = () => {
-    if (selectedPlayer) setSelectedPlayer(null);
+    if (selectedPlayer) showBoards();
     else onBack();
   };
 
@@ -182,7 +231,7 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
                 key={mode}
                 type="button"
                 data-testid={`button-view-${mode}`}
-                onClick={() => setView(mode)}
+                onClick={() => (mode === "boards" ? showBoards() : showCompare(compareWith))}
                 aria-pressed={view === mode}
                 className={`min-h-9 rounded-sm text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
                   view === mode
@@ -225,7 +274,23 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
           </div>
         )}
 
-        {!loading && !failed && withGames.length === 0 && (
+        {playerNotFound && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center h-full px-6 text-center gap-3"
+          >
+            <BarChart3 className="w-10 h-10 text-muted-foreground/30" />
+            <p className="text-muted-foreground text-sm">
+              No player called “{selectedPlayer}”
+            </p>
+            <Button variant="secondary" size="sm" onClick={showBoards}>
+              Back to leaderboards
+            </Button>
+          </motion.div>
+        )}
+
+        {!loading && !failed && !playerNotFound && withGames.length === 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -239,7 +304,7 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
           </motion.div>
         )}
 
-        {!loading && !failed && withGames.length > 0 && (
+        {!loading && !failed && !playerNotFound && withGames.length > 0 && (
           <AnimatePresence mode="wait">
             {selected ? (
               <motion.div
@@ -266,7 +331,7 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
                   </p>
                   <Podium
                     rows={(winRateBoard?.rows ?? []).slice(0, 3)}
-                    onSelectPlayer={setSelectedPlayer}
+                    onSelectPlayer={showPlayer}
                   />
                 </section>
 
@@ -291,7 +356,7 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
                   <LeaderboardCard
                     key={board.key}
                     board={board}
-                    onSelectPlayer={setSelectedPlayer}
+                    onSelectPlayer={showPlayer}
                   />
                 ))}
 
@@ -316,7 +381,7 @@ export default function PlayersScreen({ onBack }: PlayersScreenProps) {
                     {compareWith.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setCompareWith([])}
+                        onClick={() => showCompare([], true)}
                         className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                       >
                         Clear

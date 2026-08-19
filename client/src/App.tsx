@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, Component, Suspense, lazy, type ReactNode, type ErrorInfo } from "react";
-import { Router, Route, useParams, useLocation } from "wouter";
+import { Router, Route, Switch, useParams, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { AnimatePresence, motion } from "framer-motion";
 import { AppScreen, Game, CricketGame, X01Game } from "@/lib/types";
@@ -32,8 +32,14 @@ const screenFallback = (
 
 function MainApp() {
   const [authenticated, setAuthenticated] = useState(() => isAccessGranted());
-  const [screen, setScreen] = useState<AppScreen>('home');
+  const [screenState, setScreen] = useState<AppScreen>('home');
   const [game, setGame] = useState<Game | null>(null);
+  const [location, navigate] = useLocation();
+
+  // The players area is the one screen with a real URL — it's worth linking to
+  // and sharing. Everything else in the game flow stays screen state.
+  const onPlayersRoute = location === '/players' || location.startsWith('/players/');
+  const screen: AppScreen = onPlayersRoute ? 'players' : screenState;
 
   // Mirrors `game` for callbacks that fire outside React's render flow.
   const gameRef = useRef<Game | null>(null);
@@ -216,8 +222,12 @@ function MainApp() {
   }, []);
 
   const handleViewPlayers = useCallback(() => {
-    setScreen('players');
-  }, []);
+    navigate('/players');
+  }, [navigate]);
+
+  const handleLeavePlayers = useCallback(() => {
+    navigate('/');
+  }, [navigate]);
 
   const handleBackToHome = useCallback(() => {
     setScreen('home');
@@ -369,7 +379,7 @@ function MainApp() {
             className="h-full"
           >
             <Suspense fallback={screenFallback}>
-              <PlayersScreen onBack={handleBackToHome} />
+              <PlayersScreen onBack={handleLeavePlayers} />
             </Suspense>
           </motion.div>
         )}
@@ -584,8 +594,14 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <Route path="/" component={MainApp} />
-        <Route path="/game/:gameId" component={SharedGameView} />
+        <Switch>
+          <Route path="/game/:gameId" component={SharedGameView} />
+          {/* The whole players area is one Route, so walking from the boards
+              into a player and back keeps MainApp — and the loaded stats —
+              mounted instead of refetching on every drill-down. */}
+          <Route path="/players/:name?" component={MainApp} />
+          <Route path="/" component={MainApp} />
+        </Switch>
       </Router>
     </ErrorBoundary>
   );

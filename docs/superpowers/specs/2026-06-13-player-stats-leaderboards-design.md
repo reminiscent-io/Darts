@@ -147,7 +147,8 @@ The shots endpoint returns rows sorted by `thrownAt DESC`. Before computing roun
 - **Heatmap geometry** is presentational; if board rendering proves heavy, fall back to a "top targets" list (functions already produce the buckets).
 
 ## Open decisions — resolved
-- Shareable per-player URL: **No** for v1 — use screen-state navigation, consistent with the rest of the game flow.
+- ~~Shareable per-player URL: **No** for v1 — use screen-state navigation, consistent with the rest of the game flow.~~
+  **Reversed during implementation** — the players area is routed (see note 5 below).
 - Minimum games to qualify: **3** (tunable constant).
 
 ## Implementation notes (2026-08-01)
@@ -170,6 +171,14 @@ Built as specified, with four deviations worth recording.
    detour into a player's detail, and `App.tsx` gains one screen instead of two.
 4. **Charts are hand-rolled SVG** (`trend-chart.tsx`) rather than recharts. The
    stats chunk stays free of the chart library — 10 kB gzipped for the whole area.
+5. **The players area is routed**, reversing the spec's "no shareable URL in v1":
+   `/players`, `/players/:name`, and `/players/compare?with=A,B` are all
+   linkable, and the browser's back button walks them. `MainApp` reads the
+   players screen out of the location while keeping `screen` state for the game
+   flow, and `/players/:name?` is a **single** `<Route>` so React keeps `MainApp`
+   mounted across the whole area — drilling into a player costs no refetch and no
+   loading skeleton. The rest of the game flow (setup, game, post-game, history)
+   stays screen state, since those are session, not destinations.
 
 Known limits, unchanged from the spec: the overview fans out one shots fetch per
 player, and a career past 5000 darts is truncated by the endpoint cap.
