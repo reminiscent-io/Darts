@@ -13,6 +13,8 @@ Set up a game in seconds, attribute every dart to the right player even in team 
 - **Real-time multi-device sync** over WebSocket, so a phone, laptop, and bar TV can all show the same live game
 - **Shareable game links** for spectators
 - **Game history** with completed-game summaries and per-player shot data
+- **Career player stats**: leaderboards, per-player trends, and head-to-head comparison, built from every dart thrown
+- **Installable PWA** with an offline fallback, so it works on a phone at a bar with bad signal
 - **Mobile-first dark UI** built with shadcn/ui and Framer Motion transitions
 - **Local + cloud persistence**: game state survives a refresh via localStorage and lives durably in Postgres
 
@@ -20,7 +22,7 @@ Set up a game in seconds, attribute every dart to the right player even in team 
 
 **Frontend**
 - React 18 + Vite
-- Wouter for shareable game URLs and the history page
+- Wouter for shareable game URLs and the players area
 - Framer Motion for screen transitions
 - Tailwind CSS dark theme + shadcn/ui (new-york variant)
 
@@ -51,7 +53,7 @@ Path aliases:
 ## Architecture Notes
 
 ### Screen state machine, not a router
-Game flow (`home → setup → game → post-game`) is driven by a discriminated `AppScreen` union in `types.ts`, with Framer Motion's `AnimatePresence` handling transitions. Wouter is reserved for shareable game URLs (`/game/:id`) and the history page.
+Game flow (`home → setup → game → post-game`, plus `history` and `players`) is driven by a discriminated `AppScreen` union in `types.ts`, with Framer Motion's `AnimatePresence` handling transitions. Wouter covers three routes only: `/game/:gameId` for shareable spectator links, and `/players/:name?` and `/` for the app itself. History is screen state and has no URL of its own.
 
 ### Parallel implementations per game mode
 Cricket and X01 each get their own game logic, game screen, and post-game screen:
@@ -116,7 +118,7 @@ The build outputs to `dist/`. Production serves static files from `dist/public/`
 
 ```bash
 npm run dev      # Express + Vite HMR on port 3000
-npm run build    # Build client (Vite) and server (esbuild) to dist/
+npm run build    # Runs script/build.ts: Vite builds the client, esbuild bundles the server
 npm start        # Run production build
 npm run check    # TypeScript typecheck
 npm run db:push  # Push Drizzle schema to PostgreSQL
