@@ -13,6 +13,8 @@ Set up a game in seconds, attribute every dart to the right player even in team 
 - **Real-time multi-device sync** over WebSocket, so a phone, laptop, and bar TV can all show the same live game
 - **Shareable game links** for spectators
 - **Game history** with completed-game summaries and per-player shot data
+- **Player stats** built from every recorded dart: leaderboards (win rate, Cricket MPR, X01 3-dart average, accuracy, and more), a career page per player with trend charts and a dartboard heatmap, and side-by-side comparison of up to four players with head-to-head records. Every view has its own link.
+- **Installable PWA**: add it to a home screen and it runs full-screen like a native app. A service worker caches the app so it still opens on a flaky bar connection, with an offline page when it can't, and the game in progress is always saved on the device first.
 - **Mobile-first dark UI** built with shadcn/ui and Framer Motion transitions
 - **Local + cloud persistence**: game state survives a refresh via localStorage and lives durably in Postgres
 
@@ -20,7 +22,7 @@ Set up a game in seconds, attribute every dart to the right player even in team 
 
 **Frontend**
 - React 18 + Vite
-- Wouter for shareable game URLs and the history page
+- Wouter for shareable game links and the player stats pages
 - Framer Motion for screen transitions
 - Tailwind CSS dark theme + shadcn/ui (new-york variant)
 
@@ -51,7 +53,9 @@ Path aliases:
 ## Architecture Notes
 
 ### Screen state machine, not a router
-Game flow (`home → setup → game → post-game`) is driven by a discriminated `AppScreen` union in `types.ts`, with Framer Motion's `AnimatePresence` handling transitions. Wouter is reserved for shareable game URLs (`/game/:id`) and the history page.
+Game flow (`home → setup → game → post-game`), along with the history and players screens, is driven by the `AppScreen` union in `types.ts`, with Framer Motion's `AnimatePresence` handling transitions. History is plain screen state and has no URL.
+
+Wouter handles only three routes: `/game/:gameId` for shareable spectator links, and `/players/:name?` and `/` for the main app. When the URL is under `/players`, the app shows the players screen, so leaderboards (`/players`), a player's page (`/players/<name>`), and comparisons (`/players/compare?with=A,B`) can all be linked. All of those share one route so moving between them doesn't reload the stats.
 
 ### Parallel implementations per game mode
 Cricket and X01 each get their own game logic, game screen, and post-game screen:
