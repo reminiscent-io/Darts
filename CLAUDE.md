@@ -24,7 +24,7 @@ Leave that rewrite out of your commit unless changing how Replit installs is the
 - `npm run dev` — Start dev server (Express + Vite HMR). Port 3000, or `$PORT` if set (`.replit` sets 5000).
 - `npm run build` — Runs `script/build.ts`: Vite builds the client to `dist/public/`, esbuild bundles the server to `dist/index.cjs`
 - `npm start` — Run production build (`dist/index.cjs`)
-- `npm run check` — TypeScript type checking. Fails on a clean checkout with 2 pre-existing errors in `server/ws.ts` (TS2802, `Set` iteration) because `tsconfig.json` sets no `target` and so defaults to ES5. Those 2 are the baseline; anything beyond them is yours.
+- `npm run check` — TypeScript type checking
 - `npm run db:push` — Push Drizzle schema to PostgreSQL
 - `npx vitest run` — Run tests (5 files, 120 tests, all under `client/src/lib/`)
 - `npx vitest run client/src/lib/x01-game-logic.test.ts` — Run a single test file
