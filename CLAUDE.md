@@ -129,7 +129,7 @@ The `use-game-sync` hook manages the client connection. On update, the originati
 
 ## Other docs
 
-- `README.md` — public-facing. Accurate on stack and setup; its routing section repeats the outdated claim that Wouter serves the history page.
-- `replit.md` — stale. Predates X01, the players area, and the current routing; it references `game-screen.tsx` and `post-game-screen.tsx`, which no longer exist. Don't trust it as a description of the code.
+- `README.md` — the public-facing overview: features, stack, setup, and a short architecture summary. When you change routing or add a user-visible feature, update it in the same change.
+- `replit.md` — Replit Agent's project notes. Agent reads it on every request and regenerates it if the file is deleted, so it stays, but only as a short stub: the owner's communication preference plus Replit-only details (port 5000, deploy config, the firewall URLs in the lockfile, the Replit Vite plugins). For architecture it points back here. Keep architecture out of it so it can't drift again.
 - `docs/superpowers/` — plans and design specs for past features.
 - `.claude/skills/` — two skills travel with the repo: `pwa`, which covers the service worker and manifest ground above in more depth, and `code-doubter`. No `impeccable` skill is present.

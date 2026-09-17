@@ -47,7 +47,8 @@ All statistics are computed **client-side** from existing REST APIs (the `shots`
   - **Overview** (`selectedPlayer === null`) — leaderboards.
   - **Dashboard** (`selectedPlayer === <name>`) — that player's detail.
   - Back from dashboard clears `selectedPlayer`; back from overview returns to Home.
-- Transitions use the existing Framer Motion `AnimatePresence` pattern. No new Wouter routes (Wouter stays reserved for shareable game links / history).
+- Transitions use the existing Framer Motion `AnimatePresence` pattern. No new Wouter routes (Wouter stays reserved for shareable game links; History is screen state with no route).
+  - *Later reversed:* [PR #23](https://github.com/reminiscent-io/Darts/pull/23) gave the players area its own Wouter route, `/players/:name?`.
 
 ### Data flow (client-side)
 **Overview** loads in parallel:
